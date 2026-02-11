@@ -1,4 +1,4 @@
-package cs313.stage1;
+package stage1;
 
 import java.io.IOException;
 import java.net.ServerSocket;
