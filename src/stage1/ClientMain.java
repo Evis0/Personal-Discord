@@ -7,23 +7,26 @@ public class ClientMain {
 
     public static void main(String[] args) {
 
-        String host = "localhost";
-        int port = 5000;
+        if (args.length != 2) {
+            System.out.println("Usage: java ClientMain <host> <port>");
+            return;
+        }
+
+        String host = args[0];
+        int port = Integer.parseInt(args[1]);
 
         try {
             Socket socket = new Socket(host, port);
             System.out.println("Connected to server at " + host + ":" + port);
 
-            // Keep connection open so server doesn't exit
-            Thread.sleep(600000);
+            // start the chat session
+            ChatSession session = new ChatSession(socket);
+            session.start();
 
-            socket.close();
-
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.out.println("Connection failed. Is the server running?");
             e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+
         }
     }
 }
