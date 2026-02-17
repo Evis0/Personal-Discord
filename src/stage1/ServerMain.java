@@ -8,7 +8,12 @@ public class ServerMain {
 
     public static void main(String[] args) {
 
-        int port = 5000;
+        if (args.length != 1) {
+            System.out.println("Usage: java ServerMain <port>");
+            return;
+        }
+
+        int port = Integer.parseInt(args[0]);
 
         try (ServerSocket serverSocket = new ServerSocket(port)) {
 
@@ -20,9 +25,9 @@ public class ServerMain {
             System.out.println("Client connected from: "
                     + clientSocket.getRemoteSocketAddress());
 
-            // Keep the socket open for messaging later
-            // For now just hold it open
-            Thread.sleep(600000);
+            // start chat session instead of sleeping
+            ChatSession session = new ChatSession(clientSocket);
+            session.start();
 
         } catch (Exception e) {
             e.printStackTrace();
