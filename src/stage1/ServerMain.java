@@ -26,10 +26,13 @@ public class ServerMain {
                     + clientSocket.getRemoteSocketAddress());
 
             // start chat session instead of sleeping
+            System.out.println("Starting chat session...");
             ChatSession session = new ChatSession(clientSocket);
             session.start();
+            System.out.println("Chat session ended.");
 
         } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
             e.printStackTrace();
         }
     }
