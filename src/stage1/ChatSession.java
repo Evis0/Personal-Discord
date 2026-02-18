@@ -54,6 +54,10 @@ public class ChatSession {
             sender.start();
             receiver.start();
 
+            // Wait for threads to complete
+            sender.join();
+            receiver.join();
+
         } catch (Exception e) {
             e.printStackTrace();
         }
