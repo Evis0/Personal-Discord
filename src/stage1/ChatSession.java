@@ -17,6 +17,9 @@ public class ChatSession {
 
     public void start() {
         try {
+            System.out.println("ChatSession.start() called!");
+            System.out.flush();
+
             InputStream in = socket.getInputStream();
             OutputStream out = socket.getOutputStream();
 
@@ -24,6 +27,7 @@ public class ChatSession {
             Thread sender = new Thread(() -> {
                 try {
                     System.out.println("Ready to send messages. Type your message:");
+                    System.out.flush();
                     while (!socket.isClosed()) {
                         String message = userInput.nextLine();
 
@@ -45,6 +49,7 @@ public class ChatSession {
             Thread receiver = new Thread(() -> {
                 try (Scanner socketScanner = new Scanner(in, StandardCharsets.UTF_8)) {
                     System.out.println("Listening for incoming messages...");
+                    System.out.flush();
                     while (socketScanner.hasNextLine()) {
                         String received = socketScanner.nextLine();
                         System.out.println("Received: " + received);
