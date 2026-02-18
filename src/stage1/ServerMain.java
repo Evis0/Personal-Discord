@@ -1,13 +1,9 @@
 package stage1;
 
-import java.io.OutputStream;
-import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner;
 
 public class ServerMain {
 
@@ -48,9 +44,8 @@ public class ServerMain {
     public static void broadcast(String message, ClientHandler sender) {
         synchronized (clients) {
             for (ClientHandler client : clients) {
-                if (client != sender) {
-                    client.sendMessage(message);
-                }
+                // Send to all clients including sender for consistent display
+                client.sendMessage(message);
             }
         }
     }
@@ -58,57 +53,6 @@ public class ServerMain {
     public static void removeClient(ClientHandler client) {
         synchronized (clients) {
             clients.remove(client);
-        }
-    }
-
-    static class ClientHandler implements Runnable {
-        private final Socket socket;
-        private OutputStream out;
-
-        public ClientHandler(Socket socket) {
-            this.socket = socket;
-        }
-
-        @Override
-        public void run() {
-            try {
-                InputStream in = socket.getInputStream();
-                out = socket.getOutputStream();
-
-                Scanner scanner = new Scanner(in, StandardCharsets.UTF_8);
-
-                while (scanner.hasNextLine()) {
-                    String message = scanner.nextLine();
-                    System.out.println("Received from " + socket.getRemoteSocketAddress() + ": " + message);
-
-                    if (message.equalsIgnoreCase("exit")) {
-                        break;
-                    }
-
-                    // Broadcast to all other clients
-                    broadcast(message, this);
-                }
-
-                scanner.close();
-                socket.close();
-                removeClient(this);
-                System.out.println("Client disconnected: " + socket.getRemoteSocketAddress());
-
-            } catch (Exception e) {
-                if (!socket.isClosed()) {
-                    e.printStackTrace();
-                }
-                removeClient(this);
-            }
-        }
-
-        public void sendMessage(String message) {
-            try {
-                out.write((message + "\n").getBytes(StandardCharsets.UTF_8));
-                out.flush();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
         }
     }
 }
