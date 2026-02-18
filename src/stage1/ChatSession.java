@@ -23,9 +23,11 @@ public class ChatSession {
             //sending thread
             Thread sender = new Thread(() -> {
                 try {
+                    System.out.println("Ready to send messages. Type your message:");
                     while (!socket.isClosed()) {
                         String message = userInput.nextLine();
 
+                        System.out.println("Sending: " + message);
                         out.write((message + "\n").getBytes(StandardCharsets.UTF_8));
                         out.flush();
 
@@ -42,10 +44,12 @@ public class ChatSession {
             //receiving thread
             Thread receiver = new Thread(() -> {
                 try (Scanner socketScanner = new Scanner(in, StandardCharsets.UTF_8)) {
+                    System.out.println("Listening for incoming messages...");
                     while (socketScanner.hasNextLine()) {
                         String received = socketScanner.nextLine();
                         System.out.println("Received: " + received);
                     }
+                    System.out.println("Connection closed by peer.");
                 } catch (Exception e) {
                     if (!socket.isClosed()) e.printStackTrace();
                 }
