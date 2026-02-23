@@ -3,12 +3,15 @@ package stage1;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ServerMain {
 
     private static final List<ClientHandler> clients = new ArrayList<>();
-
+    private static final Map<String, String> userStatuses = new HashMap<>();
+    
     public static void main(String[] args) {
 
         if (args.length != 1) {
@@ -55,4 +58,19 @@ public class ServerMain {
             clients.remove(client);
         }
     }
+
+
+    public static void updateStatus(String username, String status) {
+    synchronized (userStatuses) {
+        userStatuses.put(username, status);
+        }
+    }
+
+    public static String getStatus(String username) {
+    synchronized (userStatuses) {
+        return userStatuses.getOrDefault(username, "No status set.");
+        }
+    }
+
+    
 }

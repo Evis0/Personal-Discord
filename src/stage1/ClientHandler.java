@@ -24,6 +24,22 @@ public class ClientHandler implements Runnable {
 
             while (scanner.hasNextLine()) {
                 String message = scanner.nextLine();
+            System.out.println("DEBUG: Server received raw string: [" + message + "]");
+                
+            if (message.startsWith("/status ")) {
+                
+                String newStatus = message.substring(8);
+               
+                ServerMain.updateStatus(socket.getRemoteSocketAddress().toString(), newStatus);
+                sendMessage("SERVER: Your status is now: " + newStatus);
+                continue; 
+            } 
+            
+            if (message.equalsIgnoreCase("exit")) {
+                break;
+            }
+
+
                 System.out.println("Received from " + socket.getRemoteSocketAddress() + ": " + message);
 
                 if (message.equalsIgnoreCase("exit")) {
