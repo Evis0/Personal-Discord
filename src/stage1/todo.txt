@@ -1,0 +1,7 @@
+// asynchronous chat -> if someones offline all messages while they were away get printed
+
+// username -> assign username, direct message, join/leave status
+
+// reply ;; -> reply to someone else's message
+
+// status messages
