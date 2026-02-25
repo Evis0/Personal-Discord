@@ -2,7 +2,7 @@
 
 // username -> assign username, direct message, join/leave status
 
-// reply ;; -> reply to someone else's message
+// groupchat name -> ensure that only one person can change the name
 
 // status messages
 // ^ i believe James has already done this
