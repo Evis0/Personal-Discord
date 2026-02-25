@@ -1,4 +1,5 @@
 // asynchronous chat -> if someones offline all messages while they were away get printed
+// ?-> what if they leave the moment a message gets sent?
 
 // username -> assign username, join/leave status, server log
 // ?-> two people have the same name?
