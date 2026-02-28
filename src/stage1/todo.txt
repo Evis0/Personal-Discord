@@ -1,0 +1,12 @@
+// asynchronous chat -> if someones offline all messages while they were away get printed
+// ?-> what if they leave the moment a message gets sent?
+
+// username -> assign username, join/leave status, server log
+// ?-> can two people have the same name?
+// ?-> what if someones leaving the server at the same time as someone else?
+
+// groupchat name -> ensure that only one person can actually change the name
+// ?-> can two people edit the name at the same time?
+
+// status messages
+// ^ i believe James has already done this
