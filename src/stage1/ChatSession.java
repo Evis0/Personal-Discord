@@ -52,7 +52,7 @@ public class ChatSession {
                     System.out.flush();
                     while (socketScanner.hasNextLine()) {
                         String received = socketScanner.nextLine();
-                        System.out.println("Received: " + received);
+
                     }
                     System.out.println("Connection closed by peer.");
                 } catch (Exception e) {

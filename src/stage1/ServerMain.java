@@ -11,7 +11,8 @@ public class ServerMain {
 
     private static final List<ClientHandler> clients = new ArrayList<>();
     private static final Map<String, String> userStatuses = new HashMap<>();
-    
+    private static final Map<String, ClientHandler> activeUsernames = new HashMap<>();
+
     public static void main(String[] args) {
 
         if (args.length != 1) {
@@ -32,9 +33,7 @@ public class ServerMain {
                         + clientSocket.getRemoteSocketAddress());
 
                 ClientHandler handler = new ClientHandler(clientSocket);
-                synchronized (clients) {
-                    clients.add(handler);
-                }
+                // Don't add to clients list yet - wait until they successfully register
                 new Thread(handler).start();
             }
 
@@ -46,6 +45,7 @@ public class ServerMain {
 
     public static void broadcast(String message, ClientHandler sender) {
         synchronized (clients) {
+            System.out.println("[SERVER] Broadcasting: " + message);
             for (ClientHandler client : clients) {
                 // Send to all clients including sender for consistent display
                 client.sendMessage(message);
@@ -56,6 +56,12 @@ public class ServerMain {
     public static void removeClient(ClientHandler client) {
         synchronized (clients) {
             clients.remove(client);
+        }
+    }
+
+    public static void addClient(ClientHandler client) {
+        synchronized (clients) {
+            clients.add(client);
         }
     }
 
@@ -72,5 +78,45 @@ public class ServerMain {
         }
     }
 
-    
+    // WITHOUT THREAD SAFETY (for demonstration purposes)
+    // This method has a race condition - two threads could check at the same time
+    // and both see the username as available before either registers it
+    public static boolean isUsernameTaken(String username) {
+        // UNSAFE VERSION: Comment out the synchronized block to demonstrate the race condition
+        synchronized (activeUsernames) {
+            return activeUsernames.containsKey(username);
+        }
+        // return activeUsernames.containsKey(username); // UNSAFE - uncomment to test race condition
+    }
+
+    // THREAD-SAFE: Atomically check and register username
+    // This prevents the race condition by doing both operations in one synchronized block
+    public static boolean checkAndRegisterUsername(String username, ClientHandler handler) {
+        synchronized (activeUsernames) {
+            if (activeUsernames.containsKey(username)) {
+                return false; // Username already taken
+            }
+            activeUsernames.put(username, handler);
+            System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
+            return true; // Successfully registered
+        }
+    }
+
+    // Register a username (THREAD SAFE)
+    public static void registerUsername(String username, ClientHandler handler) {
+        synchronized (activeUsernames) {
+            activeUsernames.put(username, handler);
+            System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
+        }
+    }
+
+    // Unregister a username when client disconnects
+    public static void unregisterUsername(String username) {
+        synchronized (activeUsernames) {
+            activeUsernames.remove(username);
+            System.out.println("[SERVER] Username unregistered: '" + username + "' | Total active users: " + activeUsernames.size());
+        }
+    }
+
+
 }
