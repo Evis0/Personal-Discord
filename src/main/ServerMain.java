@@ -1,4 +1,4 @@
-package stage1;
+package main;
 
 import java.net.ServerSocket;
 import java.net.Socket;
