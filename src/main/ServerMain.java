@@ -39,6 +39,7 @@ public class ServerMain {
                 ClientHandler handler = new ClientHandler(clientSocket);
                 // Don't add to clients list yet - wait until they successfully register
                 new Thread(handler).start();
+
             }
 
         } catch (Exception e) {
@@ -81,6 +82,33 @@ public class ServerMain {
             clients.add(client);
         }
     }
+
+    // Thread-safe: reads size inside the same lock used for add/remove
+    public static int getOnlineCount() {
+        synchronized (clients) {
+            return clients.size();
+        }
+    }
+
+    // new Thread(() -> unsafeAddClient(handler)).start(); // UNSAFE demo
+
+     /*
+
+    // UNSAFE demonstration
+    private static int clientCount = 0;
+
+    public static void unsafeAddClient(ClientHandler h) {
+        int temp = clientCount;       // Step 1: Read
+        // Simulate delay between read and write so another thread can interfere
+        try { Thread.sleep(7000); } catch (InterruptedException e) {}
+        clientCount = temp + 1;       // Step 2: Write back (may overwrite another thread's update)
+    }
+
+    public static int getOnlineCount() {
+        return clientCount;           // No lock - reads potentially stale value
+    }
+
+      */
 
 
     public static void updateStatus(String username, String status) {

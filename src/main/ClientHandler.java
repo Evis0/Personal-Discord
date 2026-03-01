@@ -29,6 +29,7 @@ public class ClientHandler implements Runnable {
             out.println("SERVER: Please enter your username:");
             username = in.readLine();
 
+
             if (username == null || username.trim().isEmpty()) {
                 System.out.println("[SERVER] Invalid username received from " + socket.getRemoteSocketAddress() + ". Disconnecting.");
                 out.println("SERVER: Invalid username. Disconnecting.");
@@ -64,6 +65,17 @@ public class ClientHandler implements Runnable {
                 if (message.trim().isEmpty()) {
                     continue;
                 }
+
+                if (message.equalsIgnoreCase("@online")) {
+                    int count = ServerMain.getOnlineCount(); // use getOnlineCountUnsafe() for unsafe demo only
+                    if (count == 1) {
+                        sendMessage("SERVER: There is currently 1 client online.");
+                    } else {
+                        sendMessage("SERVER: There are currently " + count + " client(s) online.");
+                    }
+                    continue;
+                }
+
                 // Broadcast message with username prefix
                 ServerMain.broadcast(username + ": " + message, this);
             }
