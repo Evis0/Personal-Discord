@@ -66,6 +66,32 @@ public class ClientHandler implements Runnable {
                     continue;
                 }
 
+                //rename group chat
+                if (message.startsWith("/rename ")){
+                    String newName = message.substring("/rename ".length()).trim();
+
+                    if (newName.isEmpty()) {
+                        sendMessage("SERVER: Usage: /rename <newName>");
+                        continue;
+                    }
+
+                    ServerMain.renameRoom(newName, username);
+                    ServerMain.broadcast("SERVER: " + username + " renamed the room to " + newName, this);
+                    continue;
+                }
+
+                //show the current group chat name
+                if (message.equalsIgnoreCase("/roomname")){
+                    sendMessage("SERVER: Current room name is: " + ServerMain.getRoomName());
+                    continue;
+                }
+
+                //debug command to prove race condition
+                if (message.equalsIgnoreCase("/roomstats")){
+                    sendMessage("SERVER: Current room stats is: " + ServerMain.getRoomStats());
+                    continue;
+                }
+
                 if (message.equalsIgnoreCase("@online")) {
                     int count = ServerMain.getOnlineCount(); // use getOnlineCountUnsafe() for unsafe demo only
                     if (count == 1) {

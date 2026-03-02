@@ -17,6 +17,12 @@ public class ServerMain {
     private static final Map<String, ClientHandler> activeUsernames = new HashMap<>();
     private static final Object fileLock = new Object();
 
+    private static final Object roomLock = new Object();
+    private static String roomName = "Main";
+
+    private static int renameCount = 0;
+    private static final List<String> renameHistory = new ArrayList<>();
+
     public static void main(String[] args) {
 
         if (args.length != 1) {
@@ -164,4 +170,41 @@ public class ServerMain {
     }
 
 
+    public static void renameRoom( String newName, String username) {
+
+        //change group name (thread safe version)
+       synchronized (roomLock) {
+            renameCount++;
+            roomName = newName;
+            renameHistory.add(newName);
+        }
+
+
+        //unsafe thread version
+
+       /* int temp = renameCount;      //read
+        Thread.yield();              //encourage thread interleaving
+        renameCount = temp + 1;      //write (lost updates possible)
+
+        roomName = newName;
+        renameHistory.add(newName);
+
+
+        */
+    }
+
+    //comment out synchronized in both below to show unsafe reads
+    public static String getRoomName() {
+        synchronized (roomLock) {
+            return roomName;
+        }
+    }
+
+    public static String getRoomStats() {
+        synchronized (roomLock) {
+            return "roomName =" + roomName +
+                    " renameCount =" + renameCount +
+                    " historySize =" + renameHistory.size();
+        }
+    }
 }

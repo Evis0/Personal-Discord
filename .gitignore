@@ -1,0 +1,9 @@
+﻿# IntelliJ
+.idea/
+*.iml
+
+# Build output
+out/
+
+# Runtime logs
+chatlog.txt
