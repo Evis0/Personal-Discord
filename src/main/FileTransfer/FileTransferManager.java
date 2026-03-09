@@ -1,4 +1,4 @@
-package main;
+package main.FileTransfer;
 
 public class FileTransferManager {
 }
