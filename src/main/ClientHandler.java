@@ -58,6 +58,8 @@ public class ClientHandler implements Runnable {
             // Notify everyone that user joined
             ServerMain.broadcast("SERVER: " + username + " has joined the chat!", this);
             out.println("SERVER: Welcome " + username + "! You are now connected.");
+            out.println("SERVER: You are in the '" + ServerMain.getRoomName() + "' room.");
+            out.println("SERVER: Commands: /rename <name> - rename the room | /roomname - view room name | @online - see online users");
 
             // Read and broadcast messages
             String message;

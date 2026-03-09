@@ -29,3 +29,21 @@ stenhousewing: hell nah im out
 SERVER: stenhousewing has left the chat.
 johnanderson: same
 SERVER: johnanderson has left the chat.
+SERVER: hi has joined the chat!
+SERVER: hi has left the chat.
+SERVER: hi has joined the chat!
+hi: dh
+SERVER: hi has left the chat.
+SERVER: hi has joined the chat!
+hi: deez
+SERVER: hmed has joined the chat!
+hmed: e
+hmed: /rename
+SERVER: hmed renamed the room to group1
+hmed: /status
+SERVER: emma has joined the chat!
+SERVER: emma has left the chat.
+SERVER: evis has joined the chat!
+SERVER: ii has joined the chat!
+ii: @roomname
+SERVER: hi has joined the chat!
