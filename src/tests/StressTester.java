@@ -6,7 +6,7 @@ import java.net.Socket;
 public class StressTester {
     public static void main(String[] args) {
         String host = "localhost";
-        int port = 1234; 
+        int port = 8082; 
         String sharedUsername = "CollisionUser";
 
         // launch 10 threads at the same time

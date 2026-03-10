@@ -24,7 +24,7 @@ public class ClientHandler implements Runnable {
 
             while (scanner.hasNextLine()) {
                 String message = scanner.nextLine();
-            System.out.println("DEBUG: Server received raw string: [" + message + "]");
+
                 
             if (message.startsWith("/status ")) {
                 

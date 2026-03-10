@@ -24,6 +24,7 @@ public class ServerMain {
     private static final List<String> renameHistory = new ArrayList<>();
 
     public static void main(String[] args) {
+        
 
         if (args.length != 1) {
             System.out.println("Usage: java ServerMain <port>");
@@ -129,19 +130,16 @@ public class ServerMain {
         }
     }
 
-    // WITHOUT THREAD SAFETY (for demonstration purposes)
-    // This method has a race condition - two threads could check at the same time
-    // and both see the username as available before either registers it
+    
     public static boolean isUsernameTaken(String username) {
-        // UNSAFE VERSION: Comment out the synchronized block to demonstrate the race condition
+      
         synchronized (activeUsernames) {
             return activeUsernames.containsKey(username);
         }
-        // return activeUsernames.containsKey(username); // UNSAFE - uncomment to test race condition
+        
     }
 
     // THREAD-SAFE: Atomically check and register username
-    // This prevents the race condition by doing both operations in one synchronized block
     public static boolean checkAndRegisterUsername(String username, ClientHandler handler) {
         synchronized (activeUsernames) {
             if (activeUsernames.containsKey(username)) {
@@ -152,6 +150,31 @@ public class ServerMain {
             return true; // Successfully registered
         }
     }
+
+
+//     public static boolean checkAndRegisterUsername(String username, ClientHandler handler) {
+    
+//     // lock has been removed - without synchronisation multiple threads can run the method and access hashmap
+
+//     //check is username exists in map
+//     if (activeUsernames.containsKey(username)) {
+//         return false;
+//     }
+
+    
+//     // Time window for another thread
+//     try { 
+//         System.out.println("[DEBUG] " + username + " is checking the map...");
+//         Thread.sleep(5000); 
+//     } catch (InterruptedException e) {}
+
+//     //  Both threads write to the map
+//     activeUsernames.put(username, handler);
+//     System.out.println("[SERVER] Successfully registered: " + username);
+//     return true;
+
+    
+// }
 
     // Register a username (THREAD SAFE)
     public static void registerUsername(String username, ClientHandler handler) {
