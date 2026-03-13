@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import main.FileTransfer.FileTransferService;
+import java.io.DataOutputStream;
+import java.io.File;
 
 public class ClientHandler implements Runnable {
     private Socket socket;
@@ -59,12 +62,41 @@ public class ClientHandler implements Runnable {
             ServerMain.broadcast("SERVER: " + username + " has joined the chat!", this);
             out.println("SERVER: Welcome " + username + "! You are now connected.");
             out.println("SERVER: You are in the '" + ServerMain.getRoomName() + "' room.");
-            out.println("SERVER: Commands: /rename <name> - rename the room | /roomname - view room name | @online - see online users");
+            out.println("SERVER: Commands: /rename <name> - rename the room | /roomname - view room name | @online - see online users | /sendfile <filepath> - send a file | /downloadfile <id> - download a file by upload id");
 
             // Read and broadcast messages
             String message;
             while ((message = in.readLine()) != null) {
-                if (message.trim().isEmpty()) {
+                if (message.trim().isEmpty()) continue;
+
+                // sendfile
+                if (message.startsWith("/sendfile ")) {
+                    String filePath = message.substring("/sendfile ".length()).trim();
+                    try {
+                        String fileId = FileTransferService.handleUpload(filePath, username);
+                        // get the filename for the broadcast message
+                        String fileName = new File(filePath).getName();
+                        ServerMain.broadcast(username + " sent file \"" + fileName + "\" [ID: " + fileId + "]. Use /downloadfile " + fileId + " to download it.", this);
+                        // notify the sender
+                        sendMessage("SERVER: File uploaded successfully. ID: " + fileId);
+                    } catch (IOException e) {
+                        sendMessage("SERVER: Failed to upload file - " + e.getMessage());
+                    }
+                    continue;
+                }
+
+                // downloadfile
+                if (message.startsWith("/downloadfile ")) {
+                    String fileId = message.substring("/downloadfile ".length()).trim();
+                    try {
+                        // write the file bakc with dataoutputstream
+                        DataOutputStream dataOut = new DataOutputStream(socket.getOutputStream());
+                        // signal to client that a file download is incoming
+                        out.println("SERVER_FILE_INCOMING");
+                        FileTransferService.handleDownload(fileId, dataOut);
+                    } catch (IOException e) {
+                        sendMessage("SERVER: Failed to download file - " + e.getMessage());
+                    }
                     continue;
                 }
 

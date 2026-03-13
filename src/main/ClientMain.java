@@ -6,6 +6,8 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Scanner;
+import main.FileTransfer.FileReceiver;
+import java.io.DataInputStream;
 
 public class ClientMain {
     public static void main(String[] args) {
@@ -29,7 +31,18 @@ public class ClientMain {
                 try {
                     String message;
                     while ((message = in.readLine()) != null) {
-                        System.out.println(message);
+                        // check if server is gonna send a file
+                        if (message.equals("SERVER_FILE_INCOMING")) {
+                            DataInputStream dataIn = new DataInputStream(socket.getInputStream());
+                            int nameLength = dataIn.readInt();
+                            if (nameLength == -1) {
+                                System.out.println("SERVER: File not found.");
+                            } else {
+                                FileReceiver.receiveFile(dataIn, nameLength);
+                            }
+                        } else {
+                            System.out.println(message);
+                        }
                     }
                 } catch (IOException e) {
                     System.out.println("Connection to server lost.");
