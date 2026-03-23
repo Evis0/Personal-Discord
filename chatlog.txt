@@ -314,3 +314,21 @@ SERVER: CollisionUser has left the chat.
 SERVER: CollisionUser has left the chat.
 SERVER: CollisionUser has joined the chat!
 SERVER: CollisionUser has left the chat.
+SERVER: Evis has joined the chat!
+SERVER: Mike has joined the chat!
+Mike: hello
+SERVER: Alice has joined the chat!
+SERVER: Bob has joined the chat!
+SERVER: alice has joined the chat!
+SERVER: bob has joined the chat!
+alice: heelo bob
+SERVER: alice has joined the chat!
+SERVER: bob has joined the chat!
+alice: "C:\Users\evisu_9mt8g37\Downloads\sd.mp4"
+SERVER: a has joined the chat!
+SERVER: b has joined the chat!
+SERVER: a has joined the chat!
+SERVER: b has joined the chat!
+a: mv "my video.mp4" "my_video.mp4"
+a: hello
+b: P2P_ACCEPT|a

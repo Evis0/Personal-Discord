@@ -5,6 +5,11 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+
+import main.FileTransfer.FileSender;
+import main.FileTransfer.FileTransferService;
+import java.io.DataOutputStream;
+import java.io.File;
 import main.FileTransfer.FileTransferService;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -65,38 +70,84 @@ public class ClientHandler implements Runnable {
             out.println("SERVER: Commands: /rename <name> - rename the room | /roomname - view room name | @online - see online users | /sendfile <filepath> - send a file | /downloadfile <id> - download a file by upload id");
 
             // Read and broadcast messages
+            // Read and broadcast messages
             String message;
             while ((message = in.readLine()) != null) {
                 if (message.trim().isEmpty()) continue;
 
-                // sendfile
+                // P2P file send: /sendfile @recipient /path/to/file
                 if (message.startsWith("/sendfile ")) {
-                    String filePath = message.substring("/sendfile ".length()).trim();
+                    String args = message.substring("/sendfile ".length()).trim();
+                    if (!args.startsWith("@")) {
+                        sendMessage("SERVER: Usage: /sendfile @username /path/to/file");
+                        continue;
+                    }
+
+                    int spaceIdx = args.indexOf(' ');
+                    if (spaceIdx == -1) {
+                        sendMessage("SERVER: Usage: /sendfile @username /path/to/file");
+                        continue;
+                    }
+
+                    String targetUser = args.substring(1, spaceIdx);
+                    String filePath = args.substring(spaceIdx + 1).trim();
+
+                    File file = new File(filePath);
+                    if (!file.exists() || !file.isFile()) {
+                        sendMessage("SERVER: File not found: " + filePath);
+                        sendMessage("SERVER: File absolute path: " + file.getAbsolutePath());
+                        sendMessage("SERVER: File exists: " + file.exists());
+                        continue;
+                    }
+
+
                     try {
-                        String fileId = FileTransferService.handleUpload(filePath, username);
-                        // get the filename for the broadcast message
-                        String fileName = new File(filePath).getName();
-                        ServerMain.broadcast(username + " sent file \"" + fileName + "\" [ID: " + fileId + "]. Use /downloadfile " + fileId + " to download it.", this);
-                        // notify the sender
-                        sendMessage("SERVER: File uploaded successfully. ID: " + fileId);
+                        FileSender sender = new FileSender(file);
+                        sender.waitAndSend();
+
+                        String signal = "P2P_OFFER|" + targetUser + "|" + file.getName() + "|" + sender.getPort() + "|" + file.length();
+                        out.println(signal);
+                        System.out.println("[SERVER] P2P offer from " + username + " to " + targetUser + " on port " + sender.getPort());
                     } catch (IOException e) {
-                        sendMessage("SERVER: Failed to upload file - " + e.getMessage());
+                        sendMessage("SERVER: Failed to start file sender: " + e.getMessage());
                     }
                     continue;
                 }
 
-                // downloadfile
-                if (message.startsWith("/downloadfile ")) {
-                    String fileId = message.substring("/downloadfile ".length()).trim();
-                    try {
-                        // write the file bakc with dataoutputstream
-                        DataOutputStream dataOut = new DataOutputStream(socket.getOutputStream());
-                        // signal to client that a file download is incoming
-                        out.println("SERVER_FILE_INCOMING");
-                        FileTransferService.handleDownload(fileId, dataOut);
-                    } catch (IOException e) {
-                        sendMessage("SERVER: Failed to download file - " + e.getMessage());
+                // P2P signalling: sender tells server they're ready to serve a file
+                if (message.startsWith("P2P_OFFER|")) {
+                    String[] parts = message.split("\\|");
+                    if (parts.length == 5) {
+                        String targetUser = parts[1];
+                        String fileName = parts[2];
+                        String senderPort = parts[3];
+                        String fileSize = parts[4];
+
+                        String senderIP = socket.getInetAddress().getHostAddress();
+
+                        ClientHandler target = ServerMain.getClientByUsername(targetUser);
+                        if (target != null) {
+                            target.sendMessage("P2P_FILE_OFFER|" + username + "|" + fileName + "|" + senderIP + "|" + senderPort + "|" + fileSize);
+                            sendMessage("SERVER: File offer sent to " + targetUser + ". Waiting for them to connect...");
+                            System.out.println("[SERVER] Signalling P2P transfer: " + username + " -> " + targetUser + " (" + fileName + ")");
+                        } else {
+                            sendMessage("SERVER: User '" + targetUser + "' is not online.");
+                        }
+                    } else {
+                        sendMessage("SERVER: Invalid P2P offer format.");
                     }
+                    continue;
+                }
+
+
+                // Help command
+                if (message.equalsIgnoreCase("/help")) {
+                    sendMessage("SERVER: Commands:");
+                    sendMessage("  /sendfile @username /path/to/file  - Send a file to another user");
+                    sendMessage("  /rename <newname>                  - Rename the chat room");
+                    sendMessage("  /roomname                          - View current room name");
+                    sendMessage("  @online                            - See how many users are online");
+                    sendMessage("  /help                              - Show this help message");
                     continue;
                 }
 

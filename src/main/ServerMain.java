@@ -192,6 +192,13 @@ public class ServerMain {
         }
     }
 
+    // Get a client handler by username (for P2P signalling)
+    public static ClientHandler getClientByUsername(String username) {
+        synchronized (activeUsernames) {
+            return activeUsernames.get(username);
+        }
+    }
+
 
     public static void renameRoom( String newName, String username) {
 
