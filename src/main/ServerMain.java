@@ -97,6 +97,16 @@ public class ServerMain {
         }
     }
 
+    // Thread-safe: returns comma-separated list of online usernames
+    public static String getOnlineUsernames() {
+        synchronized (activeUsernames) {
+            if (activeUsernames.isEmpty()) {
+                return "none";
+            }
+            return String.join(", ", activeUsernames.keySet());
+        }
+    }
+
     // new Thread(() -> unsafeAddClient(handler)).start(); // UNSAFE demo
 
      /*

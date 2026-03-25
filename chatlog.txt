@@ -332,3 +332,39 @@ SERVER: b has joined the chat!
 a: mv "my video.mp4" "my_video.mp4"
 a: hello
 b: P2P_ACCEPT|a
+SERVER: a has joined the chat!
+SERVER: b has joined the chat!
+b: P2P_ACCEPT|a
+b: P2P_ACCEPT|a
+SERVER: ahmed has joined the chat!
+SERVER: evis has joined the chat!
+evis: hello
+ahmed: hi 
+ahmed: cooked
+SERVER: emma has joined the chat!
+ahmed: P2P_ACCEPT|evis
+emma: P2P_ACCEPT|evis
+SERVER: ahmed has joined the chat!
+ahmed: euufre
+ahmed: fe
+ahmed: e
+ahmed: ee
+ahmed: e
+ahmed: e
+SERVER: ahmed has left the chat.
+SERVER: evis has joined the chat!
+evis: jdjdj
+evis: dknkd
+evis: dmklmd
+SERVER: ahmed has joined the chat!
+ahmed: ehudgyegd
+ahmed: ded
+ahmed: ed
+ahmed: ed
+ahmed: de
+ahmed: d
+SERVER: ahmed has left the chat.
+SERVER: ddjd has joined the chat!
+SERVER: ddjd has left the chat.
+SERVER: evis has joined the chat!
+SERVER: me has joined the chat!
