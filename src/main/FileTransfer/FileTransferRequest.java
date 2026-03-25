@@ -14,10 +14,4 @@ public class FileTransferRequest {
         this.senderUsername = senderUsername;
         this.fileData = fileData;
     }
-
-    public String getFileId() { return fileId; }
-    public String getFileName() { return fileName; }
-    public long getFileSize() { return fileSize; }
-    public String getSenderUsername() { return senderUsername; }
-    public byte[] getFileData() { return fileData; }
 }

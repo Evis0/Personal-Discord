@@ -21,28 +21,4 @@ public class FileTransferService {
         String fileId = FileTransferManager.storeFile(file.getName(), fileData, senderUsername);
         return fileId;
     }
-
-    // called when a client does /downloadfile <id>
-    // looks up the file and writes it back to the client w dataoutputstream
-    public static void handleDownload(String fileId, DataOutputStream dataOut) throws IOException {
-        FileTransferRequest request = FileTransferManager.getFile(fileId);
-
-        if (request == null) {
-            // file not found
-            dataOut.writeInt(-1);
-            dataOut.flush();
-            return;
-        }
-
-        byte[] nameBytes = request.getFileName().getBytes("UTF-8");
-
-        // write: name length, name, file size, file data
-        dataOut.writeInt(nameBytes.length);
-        dataOut.write(nameBytes);
-        dataOut.writeLong(request.getFileData().length);
-        dataOut.write(request.getFileData());
-        dataOut.flush();
-
-        System.out.println("[SERVER] Served file: " + request.getFileName() + " (ID: " + fileId + ")");
-    }
 }

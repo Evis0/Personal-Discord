@@ -17,17 +17,4 @@ public class FileTransferManager {
         System.out.println("[SERVER] File stored: " + fileName + " with ID: " + fileId);
         return fileId;
     }
-
-    // get the file by id
-    public static FileTransferRequest getFile(String fileId) {
-        synchronized (storedFiles) {
-            return storedFiles.get(fileId);
-        }
-    }
-
-    public static boolean fileExists(String fileId) {
-        synchronized (storedFiles) {
-            return storedFiles.containsKey(fileId);
-        }
-    }
 }
