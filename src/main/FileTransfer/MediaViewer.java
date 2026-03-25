@@ -16,9 +16,18 @@ public class MediaViewer {
      * @param filePath path to the file to display/play
      */
     public static void viewMedia(String filePath) {
+        viewMedia(filePath, false);
+    }
+
+    /**
+     * Opens a window to display an image or play a video
+     * @param filePath path to the file to display/play
+     * @param isStreaming if true, this is a live stream (playback while downloading)
+     */
+    public static void viewMedia(String filePath, boolean isStreaming) {
         File file = new File(filePath);
         
-        if (!file.exists()) {
+        if (!isStreaming && !file.exists()) {
             JOptionPane.showMessageDialog(null, "File not found: " + filePath, 
                 "Error", JOptionPane.ERROR_MESSAGE);
             return;
@@ -34,7 +43,7 @@ public class MediaViewer {
         // Video files
         else if (filename.endsWith(".mp4") || filename.endsWith(".avi") || 
                  filename.endsWith(".mov") || filename.endsWith(".mkv")) {
-            playVideo(filePath);
+            playVideo(filePath, isStreaming);
         }
         else {
             JOptionPane.showMessageDialog(null, 
@@ -79,7 +88,7 @@ public class MediaViewer {
      * Note: Requires JavaFX or external player for full functionality
      * This version uses a basic approach
      */
-    private static void playVideo(String filePath) {
+    private static void playVideo(String filePath, boolean isStreaming) {
         SwingUtilities.invokeLater(() -> {
             try {
                 // Try to open with system default video player
@@ -88,24 +97,28 @@ public class MediaViewer {
                 if (os.contains("win")) {
                     // Windows
                     Runtime.getRuntime().exec(new String[]{"cmd", "/c", "start", filePath});
-                    System.out.println("[VIEWER] Opened video with Windows player: " + filePath);
+                    System.out.println("[VIEWER] " + (isStreaming ? "Streaming" : "Opened") + " video with Windows player: " + filePath);
                 } 
                 else if (os.contains("mac")) {
                     // Mac
                     Runtime.getRuntime().exec(new String[]{"open", filePath});
-                    System.out.println("[VIEWER] Opened video with Mac player: " + filePath);
+                    System.out.println("[VIEWER] " + (isStreaming ? "Streaming" : "Opened") + " video with Mac player: " + filePath);
                 } 
                 else if (os.contains("nux")) {
                     // Linux
                     Runtime.getRuntime().exec(new String[]{"xdg-open", filePath});
-                    System.out.println("[VIEWER] Opened video with Linux player: " + filePath);
+                    System.out.println("[VIEWER] " + (isStreaming ? "Streaming" : "Opened") + " video with Linux player: " + filePath);
                 }
 
                 // Show confirmation dialog
-                JOptionPane.showMessageDialog(null,
+                String title = isStreaming ? "Real-time Streaming" : "Video Playback";
+                String message = isStreaming ? 
+                    "Streaming video: " + new File(filePath).getName() + "\n\n" +
+                    "Playback is starting while the file is still downloading!" :
                     "Opening video: " + new File(filePath).getName() + "\n\n" +
-                    "Video will play in your system's default media player.",
-                    "Video Playback", JOptionPane.INFORMATION_MESSAGE);
+                    "Video will play in your system's default media player.";
+
+                JOptionPane.showMessageDialog(null, message, title, JOptionPane.INFORMATION_MESSAGE);
 
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(null,

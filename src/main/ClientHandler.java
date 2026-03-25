@@ -67,7 +67,7 @@ public class ClientHandler implements Runnable {
             ServerMain.broadcast("SERVER: " + username + " has joined the chat!", this);
             out.println("SERVER: Welcome " + username + "! You are now connected.");
             out.println("SERVER: You are in the '" + ServerMain.getRoomName() + "' room.");
-            out.println("SERVER: Commands: /rename <name> - rename the room | /roomname - view room name | @online - see online users | /sendfile <filepath> - send a file | /downloadfile <id> - download a file by upload id");
+            out.println("SERVER: Commands: /rename <name> - rename the room | /roomname - view room name | /online - see online users | /sendfile <filepath> - send a file | /downloadfile <id> - download a file by upload id");
 
             // Read and broadcast messages
             // Read and broadcast messages
@@ -146,7 +146,7 @@ public class ClientHandler implements Runnable {
                     sendMessage("  /sendfile @username /path/to/file  - Send a file to another user");
                     sendMessage("  /rename <newname>                  - Rename the chat room");
                     sendMessage("  /roomname                          - View current room name");
-                    sendMessage("  @online                            - See how many users are online");
+                    sendMessage("  /online                            - See how many users are online");
                     sendMessage("  /help                              - Show this help message");
                     continue;
                 }
@@ -177,12 +177,13 @@ public class ClientHandler implements Runnable {
                     continue;
                 }
 
-                if (message.equalsIgnoreCase("@online")) {
+                if (message.equalsIgnoreCase("/online")) {
                     int count = ServerMain.getOnlineCount(); // use getOnlineCountUnsafe() for unsafe demo only
+                    String usernames = ServerMain.getOnlineUsernames();
                     if (count == 1) {
-                        sendMessage("SERVER: There is currently 1 client online.");
+                        sendMessage("SERVER: There is currently 1 client online: " + usernames);
                     } else {
-                        sendMessage("SERVER: There are currently " + count + " client(s) online.");
+                        sendMessage("SERVER: There are currently " + count + " client(s) online: " + usernames);
                     }
                     continue;
                 }

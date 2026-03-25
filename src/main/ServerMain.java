@@ -10,6 +10,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class ServerMain {
 
@@ -18,6 +20,7 @@ public class ServerMain {
     // Use a concurrent map so username registration can be done with atomic operations (putIfAbsent)
     private static final ConcurrentHashMap<String, ClientHandler> activeUsernames = new ConcurrentHashMap<>();
     private static final Object fileLock = new Object();
+    private static final Lock clientsMutex = new ReentrantLock();
 
     private static final Object roomLock = new Object();
     private static String roomName = "Main";
@@ -92,10 +95,23 @@ public class ServerMain {
         }
     }
 
-    // Thread-safe: reads size inside the same lock used for add/remove
+    // Thread-safe: reads size using Mutex instead of synchronized
     public static int getOnlineCount() {
-        synchronized (clients) {
+        clientsMutex.lock();
+        try {
             return clients.size();
+        } finally {
+            clientsMutex.unlock();
+        }
+    }
+
+    // Thread-safe: returns comma-separated list of online usernames
+    public static String getOnlineUsernames() {
+        synchronized (activeUsernames) {
+            if (activeUsernames.isEmpty()) {
+                return "none";
+            }
+            return String.join(", ", activeUsernames.keySet());
         }
     }
 
