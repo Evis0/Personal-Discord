@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -14,7 +15,8 @@ public class ServerMain {
 
     private static final List<ClientHandler> clients = new ArrayList<>();
     private static final Map<String, String> userStatuses = new HashMap<>();
-    private static final Map<String, ClientHandler> activeUsernames = new HashMap<>();
+    // Use a concurrent map so username registration can be done with atomic operations (putIfAbsent)
+    private static final ConcurrentHashMap<String, ClientHandler> activeUsernames = new ConcurrentHashMap<>();
     private static final Object fileLock = new Object();
 
     private static final Object roomLock = new Object();
@@ -132,71 +134,34 @@ public class ServerMain {
 
     
     public static boolean isUsernameTaken(String username) {
-      
-        synchronized (activeUsernames) {
-            return activeUsernames.containsKey(username);
-        }
-        
+        return activeUsernames.containsKey(username);
     }
 
-    // THREAD-SAFE: Atomically check and register username
+    // THREAD-SAFE (no explicit synchronized): atomically check and register username
     public static boolean checkAndRegisterUsername(String username, ClientHandler handler) {
-        synchronized (activeUsernames) {
-            if (activeUsernames.containsKey(username)) {
-                return false; // Username already taken
-            }
-            activeUsernames.put(username, handler);
-            System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
-            return true; // Successfully registered
+        ClientHandler existing = activeUsernames.putIfAbsent(username, handler);
+        if (existing != null) {
+            return false; // Username already taken
         }
+        System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
+        return true; // Successfully registered
     }
-
-
-//     public static boolean checkAndRegisterUsername(String username, ClientHandler handler) {
-    
-//     // lock has been removed - without synchronisation multiple threads can run the method and access hashmap
-
-//     //check is username exists in map
-//     if (activeUsernames.containsKey(username)) {
-//         return false;
-//     }
-
-    
-//     // Time window for another thread
-//     try { 
-//         System.out.println("[DEBUG] " + username + " is checking the map...");
-//         Thread.sleep(5000); 
-//     } catch (InterruptedException e) {}
-
-//     //  Both threads write to the map
-//     activeUsernames.put(username, handler);
-//     System.out.println("[SERVER] Successfully registered: " + username);
-//     return true;
-
-    
-// }
 
     // Register a username (THREAD SAFE)
     public static void registerUsername(String username, ClientHandler handler) {
-        synchronized (activeUsernames) {
-            activeUsernames.put(username, handler);
-            System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
-        }
+        activeUsernames.put(username, handler);
+        System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
     }
 
     // Unregister a username when client disconnects
     public static void unregisterUsername(String username) {
-        synchronized (activeUsernames) {
-            activeUsernames.remove(username);
-            System.out.println("[SERVER] Username unregistered: '" + username + "' | Total active users: " + activeUsernames.size());
-        }
+        activeUsernames.remove(username);
+        System.out.println("[SERVER] Username unregistered: '" + username + "' | Total active users: " + activeUsernames.size());
     }
 
     // Get a client handler by username (for P2P signalling)
     public static ClientHandler getClientByUsername(String username) {
-        synchronized (activeUsernames) {
-            return activeUsernames.get(username);
-        }
+        return activeUsernames.get(username);
     }
 
 
