@@ -9,6 +9,8 @@ import java.util.Map;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class ServerMain {
 
@@ -16,6 +18,7 @@ public class ServerMain {
     private static final Map<String, String> userStatuses = new HashMap<>();
     private static final Map<String, ClientHandler> activeUsernames = new HashMap<>();
     private static final Object fileLock = new Object();
+    private static final Lock clientsMutex = new ReentrantLock();
 
     private static final Object roomLock = new Object();
     private static String roomName = "Main";
@@ -90,10 +93,13 @@ public class ServerMain {
         }
     }
 
-    // Thread-safe: reads size inside the same lock used for add/remove
+    // Thread-safe: reads size using Mutex instead of synchronized
     public static int getOnlineCount() {
-        synchronized (clients) {
+        clientsMutex.lock();
+        try {
             return clients.size();
+        } finally {
+            clientsMutex.unlock();
         }
     }
 
