@@ -6,18 +6,22 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.io.BufferedReader;
+import java.io.FileReader;
 
 public class ServerMain {
 
     private static final List<ClientHandler> clients = new ArrayList<>();
     private static final Map<String, String> userStatuses = new HashMap<>();
-    private static final Map<String, ClientHandler> activeUsernames = new HashMap<>();
-    private static final Object fileLock = new Object();
+    // Use a concurrent map so username registration can be done with atomic operations (putIfAbsent)
+    private static final ConcurrentHashMap<String, ClientHandler> activeUsernames = new ConcurrentHashMap<>();
+    private static final ReentrantLock fileLock = new ReentrantLock();
     private static final Lock clientsMutex = new ReentrantLock();
     private static final Lock usernamesMutex = new ReentrantLock();
 
@@ -61,17 +65,26 @@ public class ServerMain {
 
     public static void broadcast(String message, ClientHandler sender) {
 
-        // safe file write
-        synchronized (fileLock) {
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter("chatlog.txt", true))) {
-
-                writer.write(message);
-                writer.newLine();
-
-            } catch (IOException e) {
-                System.out.println("[SERVER] Error writing to chat log: " + e.getMessage());
-            }
+        // thread safe ver (reentrantlock ensures only one thread writes at a time)
+        fileLock.lock();
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("../chatlog.txt", true))) {
+            writer.write(message);
+            writer.newLine();
+        } catch (IOException e) {
+            System.out.println("[SERVER] Error writing to chat log: " + e.getMessage());
+        } finally {
+            fileLock.unlock(); // always unlock even if exceptions happen
         }
+
+        // thread unsafe ver
+        // without any lock two threads could have mixed lines as a race condition
+
+        // try (BufferedWriter writer = new BufferedWriter(new FileWriter("chatlog.txt", true))) {
+        //     writer.write(message);
+        //     writer.newLine();
+        // } catch (IOException e) {
+        //     System.out.println("[SERVER] Error writing to chat log: " + e.getMessage());
+        // }
 
         // send to clients
         synchronized (clients) {
@@ -91,6 +104,22 @@ public class ServerMain {
     public static void addClient(ClientHandler client) {
         synchronized (clients) {
             clients.add(client);
+        }
+    }
+
+        public static void sendChatHistory(ClientHandler client) {
+        fileLock.lock();
+        try (BufferedReader reader = new BufferedReader(new FileReader("chatlog.txt"))) {
+            client.sendMessage("SERVER: Chat History");
+            String line;
+            while ((line = reader.readLine()) != null) {
+                client.sendMessage(line);
+            }
+            client.sendMessage("SERVER: End of History");
+        } catch (IOException e) {
+            client.sendMessage("SERVER: No chat history yet.");
+        } finally {
+            fileLock.unlock();
         }
     }
 
@@ -152,71 +181,34 @@ public class ServerMain {
 
     
     public static boolean isUsernameTaken(String username) {
-      
-        synchronized (activeUsernames) {
-            return activeUsernames.containsKey(username);
-        }
-        
+        return activeUsernames.containsKey(username);
     }
 
-    // THREAD-SAFE: Atomically check and register username
+    // THREAD-SAFE (no explicit synchronized): atomically check and register username
     public static boolean checkAndRegisterUsername(String username, ClientHandler handler) {
-        synchronized (activeUsernames) {
-            if (activeUsernames.containsKey(username)) {
-                return false; // Username already taken
-            }
-            activeUsernames.put(username, handler);
-            System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
-            return true; // Successfully registered
+        ClientHandler existing = activeUsernames.putIfAbsent(username, handler);
+        if (existing != null) {
+            return false; // Username already taken
         }
+        System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
+        return true; // Successfully registered
     }
-
-
-//     public static boolean checkAndRegisterUsername(String username, ClientHandler handler) {
-    
-//     // lock has been removed - without synchronisation multiple threads can run the method and access hashmap
-
-//     //check is username exists in map
-//     if (activeUsernames.containsKey(username)) {
-//         return false;
-//     }
-
-    
-//     // Time window for another thread
-//     try { 
-//         System.out.println("[DEBUG] " + username + " is checking the map...");
-//         Thread.sleep(5000); 
-//     } catch (InterruptedException e) {}
-
-//     //  Both threads write to the map
-//     activeUsernames.put(username, handler);
-//     System.out.println("[SERVER] Successfully registered: " + username);
-//     return true;
-
-    
-// }
 
     // Register a username (THREAD SAFE)
     public static void registerUsername(String username, ClientHandler handler) {
-        synchronized (activeUsernames) {
-            activeUsernames.put(username, handler);
-            System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
-        }
+        activeUsernames.put(username, handler);
+        System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
     }
 
     // Unregister a username when client disconnects
     public static void unregisterUsername(String username) {
-        synchronized (activeUsernames) {
-            activeUsernames.remove(username);
-            System.out.println("[SERVER] Username unregistered: '" + username + "' | Total active users: " + activeUsernames.size());
-        }
+        activeUsernames.remove(username);
+        System.out.println("[SERVER] Username unregistered: '" + username + "' | Total active users: " + activeUsernames.size());
     }
 
     // Get a client handler by username (for P2P signalling)
     public static ClientHandler getClientByUsername(String username) {
-        synchronized (activeUsernames) {
-            return activeUsernames.get(username);
-        }
+        return activeUsernames.get(username);
     }
 
 
