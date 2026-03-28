@@ -19,6 +19,7 @@ public class ServerMain {
     private static final Map<String, ClientHandler> activeUsernames = new HashMap<>();
     private static final Object fileLock = new Object();
     private static final Lock clientsMutex = new ReentrantLock();
+    private static final Lock usernamesMutex = new ReentrantLock();
 
     private static final Object roomLock = new Object();
     private static String roomName = "Main";
@@ -105,11 +106,14 @@ public class ServerMain {
 
     // Thread-safe: returns comma-separated list of online usernames
     public static String getOnlineUsernames() {
-        synchronized (activeUsernames) {
+        usernamesMutex.lock();
+        try {
             if (activeUsernames.isEmpty()) {
                 return "none";
             }
             return String.join(", ", activeUsernames.keySet());
+        } finally {
+            usernamesMutex.unlock();
         }
     }
 
