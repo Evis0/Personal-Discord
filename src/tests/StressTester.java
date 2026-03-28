@@ -4,7 +4,7 @@ import java.io.*;
 import java.net.Socket;
 
 public class StressTester {
-    public static void main(String[] args) {
+    public static void main(String[] args) { //safe when 1 user connects, unsafe when all users connect.
         String host = "localhost";
         int port = 8082; 
         String sharedUsername = "CollisionUser";

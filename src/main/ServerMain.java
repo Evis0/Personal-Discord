@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -17,16 +16,19 @@ public class ServerMain {
 
     private static final List<ClientHandler> clients = new ArrayList<>();
     private static final Map<String, String> userStatuses = new HashMap<>();
-    // Use a concurrent map so username registration can be done with atomic operations (putIfAbsent)
-    private static final ConcurrentHashMap<String, ClientHandler> activeUsernames = new ConcurrentHashMap<>();
+    private static UsernameRegistry usernameRegistry = new SafeUsernameRegistry(); // changed from private static final ConcurrentHashMap<String, ClientHandler> activeUsernames = new ConcurrentHashMap<>();
+    // private static UsernameRegistry usernameRegistry = new UnsafeUsernameRegistry();
     private static final Object fileLock = new Object();
     private static final Lock clientsMutex = new ReentrantLock();
+    private static RoomManager roomManager = new SafeRoomManager();
+    // private static RoomManager roomManager = new UnsafeRoomManager();
 
-    private static final Object roomLock = new Object();
-    private static String roomName = "Main";
+    
+    // private static final Object roomLock = new Object();
+    // private static String roomName = "Main";
 
-    private static int renameCount = 0;
-    private static final List<String> renameHistory = new ArrayList<>();
+    // private static int renameCount = 0;
+    // private static final List<String> renameHistory = new ArrayList<>();
 
     public static void main(String[] args) {
         
@@ -107,13 +109,8 @@ public class ServerMain {
 
     // Thread-safe: returns comma-separated list of online usernames
     public static String getOnlineUsernames() {
-        synchronized (activeUsernames) {
-            if (activeUsernames.isEmpty()) {
-                return "none";
-            }
-            return String.join(", ", activeUsernames.keySet());
-        }
-    }
+    return usernameRegistry.getOnlineUsernames();
+}
 
     // new Thread(() -> unsafeAddClient(handler)).start(); // UNSAFE demo
 
@@ -150,72 +147,43 @@ public class ServerMain {
 
     
     public static boolean isUsernameTaken(String username) {
-        return activeUsernames.containsKey(username);
-    }
+    return usernameRegistry.getClient(username) != null;
+}
 
     // THREAD-SAFE (no explicit synchronized): atomically check and register username
     public static boolean checkAndRegisterUsername(String username, ClientHandler handler) {
-        ClientHandler existing = activeUsernames.putIfAbsent(username, handler);
-        if (existing != null) {
-            return false; // Username already taken
-        }
-        System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
-        return true; // Successfully registered
+    boolean success = usernameRegistry.register(username, handler);
+    if (success) {
+        System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + usernameRegistry.size());
     }
+    return success;
+}
 
-    // Register a username (THREAD SAFE)
-    public static void registerUsername(String username, ClientHandler handler) {
-        activeUsernames.put(username, handler);
-        System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
-    }
+    
 
-    // Unregister a username when client disconnects
     public static void unregisterUsername(String username) {
-        activeUsernames.remove(username);
-        System.out.println("[SERVER] Username unregistered: '" + username + "' | Total active users: " + activeUsernames.size());
-    }
+    usernameRegistry.unregister(username);
+    System.out.println("[SERVER] Username unregistered: '" + username + "' | Total active users: " + usernameRegistry.size());
+}
 
-    // Get a client handler by username (for P2P signalling)
     public static ClientHandler getClientByUsername(String username) {
-        return activeUsernames.get(username);
-    }
+    return usernameRegistry.getClient(username);
+}
 
 
-    public static void renameRoom( String newName, String username) {
-
-        //change group name (thread safe version)
-       synchronized (roomLock) {
-            renameCount++;
-            roomName = newName;
-            renameHistory.add(newName);
-        }
+    public static void renameRoom(String newName, String username) {
+    roomManager.renameRoom(newName, username);
+}
 
 
-        //unsafe thread version
+       
+    
 
-       /* int temp = renameCount;      //read
-        Thread.yield();              //encourage thread interleaving
-        renameCount = temp + 1;      //write (lost updates possible)
-
-        roomName = newName;
-        renameHistory.add(newName);
-
-
-        */
-    }
-
-    //comment out synchronized in both below to show unsafe reads
     public static String getRoomName() {
-        synchronized (roomLock) {
-            return roomName;
-        }
-    }
+    return roomManager.getRoomName();
+}
 
     public static String getRoomStats() {
-        synchronized (roomLock) {
-            return "roomName =" + roomName +
-                    " renameCount =" + renameCount +
-                    " historySize =" + renameHistory.size();
-        }
-    }
+    return roomManager.getRoomStats();
+}
 }
