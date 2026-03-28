@@ -68,7 +68,8 @@ public class ClientHandler implements Runnable {
             out.println("SERVER: Welcome " + username + "! You are now connected.");
             out.println("SERVER: You are in the '" + ServerMain.getRoomName() + "' room.");
             out.println("SERVER: Commands: /rename <name> - rename the room | /roomname - view room name | /online - see online users | /sendfile <filepath> - send a file | /downloadfile <id> - download a file by upload id");
-
+            ServerMain.sendChatHistory(this);
+            
             // Read and broadcast messages
             // Read and broadcast messages
             String message;
