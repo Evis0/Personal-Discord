@@ -314,6 +314,7 @@ SERVER: CollisionUser has left the chat.
 SERVER: CollisionUser has left the chat.
 SERVER: CollisionUser has joined the chat!
 SERVER: CollisionUser has left the chat.
+SERVER: ahmed has joined the chat!
 SERVER: Evis has joined the chat!
 SERVER: Mike has joined the chat!
 Mike: hello
@@ -332,6 +333,10 @@ SERVER: b has joined the chat!
 a: mv "my video.mp4" "my_video.mp4"
 a: hello
 b: P2P_ACCEPT|a
+SERVER: ah has joined the chat!
+ah: sendfile c:
+ah: he
+ah: e
 SERVER: a has joined the chat!
 SERVER: b has joined the chat!
 b: P2P_ACCEPT|a
