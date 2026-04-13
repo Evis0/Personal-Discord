@@ -1,56 +1,46 @@
 package main.VideoCall;
 
-import java.awt.*;
+import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 
-/**
- * Simple webcam capture using Java's Robot class and JFrame
- * This is a basic implementation that captures screen area (for testing)
- * For real webcam access, use JavaCV or webcam-capture library
- */
 public class Webcam {
 
-    private Robot robot;
-    private Rectangle captureArea;
-    private boolean isOpen = false;
+    private com.github.sarxos.webcam.Webcam webcam;
 
-    /**
-     * Opens the webcam (or screen capture for testing)
-     */
     public boolean open() {
         try {
-            robot = new Robot();
-            // For testing: capture a small area of the screen
-            // In production: use actual webcam library
-            captureArea = new Rectangle(0, 0, 320, 240);
-            isOpen = true;
-            System.out.println("[WEBCAM] Opened (using screen capture for testing)");
+            webcam = com.github.sarxos.webcam.Webcam.getDefault();
+
+            if (webcam == null) {
+                System.out.println("[WEBCAM] No webcam found.");
+                return false;
+            }
+
+            webcam.setViewSize(new Dimension(320, 240));
+            webcam.open();
+
+            System.out.println("[WEBCAM] Opened webcam: " + webcam.getName());
             return true;
-        } catch (AWTException e) {
-            System.out.println("[WEBCAM] Failed to open: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("[WEBCAM] Failed to open webcam: " + e.getMessage());
             return false;
         }
     }
 
-    /**
-     * Captures a single frame
-     */
     public BufferedImage captureFrame() {
-        if (!isOpen || robot == null) {
+        if (webcam == null || !webcam.isOpen()) {
             return null;
         }
-        return robot.createScreenCapture(captureArea);
+        return webcam.getImage();
     }
 
-    /**
-     * Closes the webcam
-     */
     public void close() {
-        isOpen = false;
-        System.out.println("[WEBCAM] Closed");
-    }
-
-    public boolean isOpen() {
-        return isOpen;
+        try {
+            if (webcam != null && webcam.isOpen()) {
+                webcam.close();
+            }
+        } catch (Exception e) {
+            System.out.println("[WEBCAM] Error closing webcam: " + e.getMessage());
+        }
     }
 }

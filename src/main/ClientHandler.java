@@ -6,14 +6,6 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-import main.FileTransfer.FileSender;
-import main.FileTransfer.FileTransferService;
-import java.io.DataOutputStream;
-import java.io.File;
-import main.FileTransfer.FileTransferService;
-import java.io.DataOutputStream;
-import java.io.File;
-
 public class ClientHandler implements Runnable {
     private Socket socket;
     private PrintWriter out;
@@ -67,55 +59,14 @@ public class ClientHandler implements Runnable {
             ServerMain.broadcast("SERVER: " + username + " has joined the chat!", this);
             out.println("SERVER: Welcome " + username + "! You are now connected.");
             out.println("SERVER: You are in the '" + ServerMain.getRoomName() + "' room.");
-            out.println("SERVER: Commands: /rename <name> - rename the room | /roomname - view room name | /online - see online users | /sendfile <filepath> - send a file | /downloadfile <id> - download a file by upload id");
+            out.println("SERVER: Commands: /rename <name> - rename the room | /roomname - view room name | /online - see online users | /sendfile @username <filepath> - send a file | /call @username - video call");
             ServerMain.sendChatHistory(this);
-            
-            // Read and broadcast messages
-            // Read and broadcast messages
+
             String message;
             while ((message = in.readLine()) != null) {
                 if (message.trim().isEmpty()) continue;
 
-                // P2P file send: /sendfile @recipient /path/to/file
-                if (message.startsWith("/sendfile ")) {
-                    String args = message.substring("/sendfile ".length()).trim();
-                    if (!args.startsWith("@")) {
-                        sendMessage("SERVER: Usage: /sendfile @username /path/to/file");
-                        continue;
-                    }
-
-                    int spaceIdx = args.indexOf(' ');
-                    if (spaceIdx == -1) {
-                        sendMessage("SERVER: Usage: /sendfile @username /path/to/file");
-                        continue;
-                    }
-
-                    String targetUser = args.substring(1, spaceIdx);
-                    String filePath = args.substring(spaceIdx + 1).trim();
-
-                    File file = new File(filePath);
-                    if (!file.exists() || !file.isFile()) {
-                        sendMessage("SERVER: File not found: " + filePath);
-                        sendMessage("SERVER: File absolute path: " + file.getAbsolutePath());
-                        sendMessage("SERVER: File exists: " + file.exists());
-                        continue;
-                    }
-
-
-                    try {
-                        FileSender sender = new FileSender(file);
-                        sender.waitAndSend();
-
-                        String signal = "P2P_OFFER|" + targetUser + "|" + file.getName() + "|" + sender.getPort() + "|" + file.length();
-                        out.println(signal);
-                        System.out.println("[SERVER] P2P offer from " + username + " to " + targetUser + " on port " + sender.getPort());
-                    } catch (IOException e) {
-                        sendMessage("SERVER: Failed to start file sender: " + e.getMessage());
-                    }
-                    continue;
-                }
-
-                // P2P signalling: sender tells server they're ready to serve a file
+                // P2P file signalling: sender tells server they're ready to serve a file
                 if (message.startsWith("P2P_OFFER|")) {
                     String[] parts = message.split("\\|");
                     if (parts.length == 5) {
@@ -140,11 +91,134 @@ public class ClientHandler implements Runnable {
                     continue;
                 }
 
+                // P2P file acceptance/decline forwarding
+                if (message.startsWith("P2P_ACCEPT|")) {
+                    String[] parts = message.split("\\|");
+                    if (parts.length == 2) {
+                        String senderUsername = parts[1];
+                        ClientHandler sender = ServerMain.getClientByUsername(senderUsername);
+                        if (sender != null) {
+                            sender.sendMessage("P2P_ACCEPTED|" + username);
+                        }
+                    }
+                    continue;
+                }
+
+                if (message.startsWith("P2P_DECLINE|")) {
+                    String[] parts = message.split("\\|");
+                    if (parts.length == 2) {
+                        String senderUsername = parts[1];
+                        ClientHandler sender = ServerMain.getClientByUsername(senderUsername);
+                        if (sender != null) {
+                            sender.sendMessage("P2P_DECLINED|" + username);
+                        }
+                    }
+                    continue;
+                }
+
+                // P2P video signalling: sender provides target and sender port; media remains P2P.
+                if (message.startsWith("P2P_VIDEO_OFFER|")) {
+                    String[] parts = message.split("\\|");
+                    if (parts.length == 3) {
+                        String targetUser = parts[1];
+                        String senderPort = parts[2];
+                        String senderIP = socket.getInetAddress().getHostAddress();
+
+                        ClientHandler target = ServerMain.getClientByUsername(targetUser);
+                        if (target != null) {
+                            target.sendMessage("P2P_VIDEO_INCOMING|" + username + "|" + senderIP + "|" + senderPort);
+                            sendMessage("SERVER: Video call offer sent to " + targetUser);
+                            System.out.println("[SERVER] Video offer: " + username + " -> " + targetUser + " at " + senderIP + ":" + senderPort);
+                        } else {
+                            sendMessage("SERVER: User '" + targetUser + "' is not online.");
+                        }
+                    } else {
+                        sendMessage("SERVER: Invalid P2P video offer format.");
+                    }
+                    continue;
+                }
+
+                if (message.startsWith("P2P_VIDEO_ACCEPT|")) {
+                    String[] parts = message.split("\\|");
+                    if (parts.length == 2) {
+                        String senderUsername = parts[1];
+                        ClientHandler originalSender = ServerMain.getClientByUsername(senderUsername);
+                        if (originalSender != null) {
+                            originalSender.sendMessage("P2P_VIDEO_ACCEPTED|" + username);
+                        }
+                    }
+                    continue;
+                }
+
+                if (message.startsWith("P2P_VIDEO_DECLINE|")) {
+                    String[] parts = message.split("\\|");
+                    if (parts.length == 2) {
+                        String senderUsername = parts[1];
+                        ClientHandler originalSender = ServerMain.getClientByUsername(senderUsername);
+                        if (originalSender != null) {
+                            originalSender.sendMessage("P2P_VIDEO_DECLINED|" + username);
+                        }
+                    }
+                    continue;
+                }
+
+                // P2P video-file streaming signalling (stream a stored video file with live playback)
+                // Sender -> server: P2P_VIDSTREAM_OFFER|targetUser|fileName|senderPort|fileSize
+                if (message.startsWith("P2P_VIDSTREAM_OFFER|")) {
+                    String[] parts = message.split("\\|");
+                    if (parts.length == 5) {
+                        String targetUser = parts[1];
+                        String fileName = parts[2];
+                        String senderPort = parts[3];
+                        String fileSize = parts[4];
+                        String senderIP = socket.getInetAddress().getHostAddress();
+
+                        ClientHandler target = ServerMain.getClientByUsername(targetUser);
+                        if (target != null) {
+                            target.sendMessage("P2P_VIDSTREAM_INCOMING|" + username + "|" + fileName + "|" + senderIP + "|" + senderPort + "|" + fileSize);
+                            sendMessage("SERVER: Video stream offer sent to " + targetUser);
+                            System.out.println("[SERVER] Video stream offer: " + username + " -> " + targetUser + " (" + fileName + ")");
+                        } else {
+                            sendMessage("SERVER: User '" + targetUser + "' is not online.");
+                        }
+                    } else {
+                        sendMessage("SERVER: Invalid P2P video stream offer format.");
+                    }
+                    continue;
+                }
+
+                // Receiver -> server: P2P_VIDSTREAM_ACCEPT|senderUsername
+                if (message.startsWith("P2P_VIDSTREAM_ACCEPT|")) {
+                    String[] parts = message.split("\\|");
+                    if (parts.length == 2) {
+                        String senderUsername = parts[1];
+                        ClientHandler originalSender = ServerMain.getClientByUsername(senderUsername);
+                        if (originalSender != null) {
+                            originalSender.sendMessage("P2P_VIDSTREAM_ACCEPTED|" + username);
+                        }
+                    }
+                    continue;
+                }
+
+                // Receiver -> server: P2P_VIDSTREAM_DECLINE|senderUsername
+                if (message.startsWith("P2P_VIDSTREAM_DECLINE|")) {
+                    String[] parts = message.split("\\|");
+                    if (parts.length == 2) {
+                        String senderUsername = parts[1];
+                        ClientHandler originalSender = ServerMain.getClientByUsername(senderUsername);
+                        if (originalSender != null) {
+                            originalSender.sendMessage("P2P_VIDSTREAM_DECLINED|" + username);
+                        }
+                    }
+                    continue;
+                }
 
                 // Help command
                 if (message.equalsIgnoreCase("/help")) {
                     sendMessage("SERVER: Commands:");
                     sendMessage("  /sendfile @username /path/to/file  - Send a file to another user");
+                    sendMessage("  /call @username                    - Request a P2P video call");
+                    sendMessage("  /streamvideo @username /path/to/video - Stream a video file P2P with live playback");
                     sendMessage("  /rename <newname>                  - Rename the chat room");
                     sendMessage("  /roomname                          - View current room name");
                     sendMessage("  /online                            - See how many users are online");
@@ -216,13 +290,13 @@ public class ClientHandler implements Runnable {
 
     private void cleanup() {
         try {
-            // Only unregister and broadcast if user was successfully registered
             if (registered && username != null) {
                 System.out.println("[SERVER] Cleaning up user '" + username + "' - disconnecting...");
                 ServerMain.unregisterUsername(username);
                 ServerMain.broadcast("SERVER: " + username + " has left the chat.", this);
             }
             ServerMain.removeClient(this);
+
             if (socket != null) {
                 socket.close();
                 System.out.println("[SERVER] Socket closed for " + (username != null ? "user '" + username + "'" : "client"));
@@ -232,4 +306,3 @@ public class ClientHandler implements Runnable {
         }
     }
 }
-

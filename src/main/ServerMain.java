@@ -95,16 +95,41 @@ public class ServerMain {
         }
     }
 
+    /**
+     * Broadcast a structured online user list for GUI clients.
+     * Format: ONLINE_USERS|user1,user2,user3
+     */
+    public static void broadcastOnlineUsers() {
+        String usernames;
+        usernamesMutex.lock();
+        try {
+            usernames = String.join(",", activeUsernames.keySet());
+        } finally {
+            usernamesMutex.unlock();
+        }
+
+        // send to clients
+        synchronized (clients) {
+            for (ClientHandler client : clients) {
+                client.sendMessage("ONLINE_USERS|" + usernames);
+            }
+        }
+    }
+
     public static void removeClient(ClientHandler client) {
         synchronized (clients) {
             clients.remove(client);
         }
+        // After removal, push updated list
+        broadcastOnlineUsers();
     }
 
     public static void addClient(ClientHandler client) {
         synchronized (clients) {
             clients.add(client);
         }
+        // After add, push updated list
+        broadcastOnlineUsers();
     }
 
         public static void sendChatHistory(ClientHandler client) {
@@ -204,6 +229,7 @@ public class ServerMain {
     public static void unregisterUsername(String username) {
         activeUsernames.remove(username);
         System.out.println("[SERVER] Username unregistered: '" + username + "' | Total active users: " + activeUsernames.size());
+        broadcastOnlineUsers();
     }
 
     // Get a client handler by username (for P2P signalling)

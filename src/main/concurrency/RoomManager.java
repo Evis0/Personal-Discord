@@ -1,4 +1,4 @@
-package main;
+package main.concurrency;
 
 public interface RoomManager {  
     void renameRoom(String newName, String username);

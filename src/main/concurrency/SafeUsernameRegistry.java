@@ -1,4 +1,6 @@
-package main;
+package main.concurrency;
+
+import main.ClientHandler;
 
 import java.util.concurrent.ConcurrentHashMap;
 

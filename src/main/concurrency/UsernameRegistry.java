@@ -1,4 +1,6 @@
-package main;
+package main.concurrency;
+
+import main.ClientHandler;
 
 public interface UsernameRegistry {
     boolean register(String username, ClientHandler handler);
