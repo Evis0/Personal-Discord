@@ -24,6 +24,8 @@ public class VideoCallReceiver {
     private static void runReceiver(String senderIP, int senderPort, String senderUser) {
         JFrame window = new JFrame("Video Call - " + senderUser);
         JLabel videoLabel = new JLabel("Connecting to @" + senderUser + "...", SwingConstants.CENTER);
+        videoLabel.setHorizontalAlignment(JLabel.CENTER);
+        videoLabel.setVerticalAlignment(JLabel.CENTER);
 
         SwingUtilities.invokeLater(() -> {
             window.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);

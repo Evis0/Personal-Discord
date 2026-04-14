@@ -22,13 +22,14 @@ public class ClientMain {
     private static PrintWriter out;
     private static BufferedReader in;
 
-    // GUI is optional; keep terminal-driven behavior working too.
     private static volatile ClientGUI gui;
 
-    // Holds a single pending offer awaiting Y/N input (file / video call / video stream)
-    private static volatile PendingOffer pendingOffer = null;
-    private static volatile PendingVideoOffer pendingVideoOffer = null;
-    private static volatile PendingVideoStreamOffer pendingVideoStreamOffer = null;
+    // If we ask Y/N, we store one pending thing here.
+    private static volatile PendingOffer pendingOffer;
+    private static volatile PendingVideoOffer pendingVideoOffer;
+
+    // Keep the sender object around so its thread doesn't die.
+    private static volatile VideoCallSender activeVideoSender;
 
     private static class PendingOffer {
         final String senderUser;
@@ -58,22 +59,6 @@ public class ClientMain {
         }
     }
 
-    private static class PendingVideoStreamOffer {
-        final String senderUser;
-        final String fileName;
-        final String senderIP;
-        final int senderPort;
-        final long fileSize;
-
-        PendingVideoStreamOffer(String senderUser, String fileName, String senderIP, int senderPort, long fileSize) {
-            this.senderUser = senderUser;
-            this.fileName = fileName;
-            this.senderIP = senderIP;
-            this.senderPort = senderPort;
-            this.fileSize = fileSize;
-        }
-    }
-
     public static void main(String[] args) {
         if (args.length != 2) {
             System.out.println("Usage: java ClientMain <host> <port>");
@@ -96,14 +81,12 @@ public class ClientMain {
                     ClientMain::guiDownloadNotImplemented
             );
 
-            Thread receiver = new Thread(ClientMain::receiveMessages, "ClientReceiver");
-            receiver.setDaemon(true);
-            receiver.start();
+            Thread receiverThread = new Thread(ClientMain::receiveMessages, "ClientReceiver");
+            receiverThread.setDaemon(true);
+            receiverThread.start();
 
-            // IMPORTANT: don’t block the app waiting for terminal input.
-            // GUI is now the primary input method.
-            // If you still want terminal input for debugging, uncomment this.
-            // sendMessages();
+            // GUI is the main input for now.
+            // If you want terminal input for debugging, you can bring sendMessages() back.
 
         } catch (IOException e) {
             System.out.println("Connection error: " + e.getMessage());
@@ -111,16 +94,11 @@ public class ClientMain {
         }
     }
 
-    private static void handleUserInputFromGui(String message) {
-        // GUI uses the exact same behavior as the terminal.
-        // We keep this minimal and student-friendly on purpose.
-        handleOutgoingLine(message);
+    private static void handleUserInputFromGui(String text) {
+        handleOutgoingLine(text);
     }
 
-    /**
-     * Handles one outgoing line from either terminal or GUI.
-     * @return false if the app should exit
-     */
+    // Returns false if we should exit the client.
     private static boolean handleOutgoingLine(String message) {
         if (message == null) return true;
         message = message.trim();
@@ -135,22 +113,15 @@ public class ClientMain {
             return false;
         }
 
-        // For demo simplicity: don't allow multiple different pending prompts at the same time.
-        // (The protocol supports it, but overlapping prompts confuses people during demos.)
-        boolean hasAnyPending = pendingOffer != null || pendingVideoOffer != null || pendingVideoStreamOffer != null;
+        // Don't stack multiple prompts during demo.
+        boolean hasPending = pendingOffer != null || pendingVideoOffer != null;
 
-        // NOTE: We check pending VIDEO prompts before pending FILE prompts.
-        // That keeps Y/N responses deterministic during demos.
-
-        // Handle pending video offer Y/N first
         if (pendingVideoOffer != null) {
             if (message.equalsIgnoreCase("Y")) {
-                System.out.println("Accepted video call from @" + pendingVideoOffer.senderUser + ".");
-                out.println("P2P_VIDEO_ACCEPT|" + pendingVideoOffer.senderUser);
-                VideoCallReceiver.receiveVideo(
+                acceptTwoWayVideoCall(
+                        pendingVideoOffer.senderUser,
                         pendingVideoOffer.senderIP,
-                        pendingVideoOffer.senderPort,
-                        pendingVideoOffer.senderUser
+                        pendingVideoOffer.senderPort
                 );
                 pendingVideoOffer = null;
                 return true;
@@ -160,35 +131,11 @@ public class ClientMain {
                 pendingVideoOffer = null;
                 return true;
             } else {
-                System.out.println("Please respond with Y (yes) or N (no) for the video call.");
+                System.out.println("Reply Y or N for the video call.");
                 return true;
             }
         }
 
-        // Handle pending video stream offer Y/N
-        if (pendingVideoStreamOffer != null) {
-            if (message.equalsIgnoreCase("Y")) {
-                System.out.println("Accepted video stream '" + pendingVideoStreamOffer.fileName + "' from @" + pendingVideoStreamOffer.senderUser + ".");
-                out.println("P2P_VIDSTREAM_ACCEPT|" + pendingVideoStreamOffer.senderUser);
-                VideoCallReceiver.receiveVideo(
-                        pendingVideoStreamOffer.senderIP,
-                        pendingVideoStreamOffer.senderPort,
-                        pendingVideoStreamOffer.senderUser
-                );
-                pendingVideoStreamOffer = null;
-                return true;
-            } else if (message.equalsIgnoreCase("N")) {
-                System.out.println("Declined video stream from @" + pendingVideoStreamOffer.senderUser + ".");
-                out.println("P2P_VIDSTREAM_DECLINE|" + pendingVideoStreamOffer.senderUser);
-                pendingVideoStreamOffer = null;
-                return true;
-            } else {
-                System.out.println("Please respond with Y (yes) or N (no) for the video stream.");
-                return true;
-            }
-        }
-
-        // If we have a pending FILE offer, interpret simple Y/N
         if (pendingOffer != null) {
             if (message.equalsIgnoreCase("Y")) {
                 System.out.println("Accepted. Downloading '" + pendingOffer.fileName + "'...");
@@ -202,44 +149,29 @@ public class ClientMain {
                 pendingOffer = null;
                 return true;
             } else {
-                System.out.println("Please respond with Y (yes) or N (no).");
+                System.out.println("Reply Y or N.");
                 return true;
             }
         }
 
-        // Handle /sendfile command locally
         if (message.startsWith("/sendfile ")) {
-            if (hasAnyPending) {
-                System.out.println("You have a pending request. Respond Y/N first.");
+            if (hasPending) {
+                System.out.println("You have a pending request. Reply Y/N first.");
                 return true;
             }
             handleSendFile(message);
             return true;
         }
 
-        // Handle /call command locally
         if (message.startsWith("/call ")) {
-            if (hasAnyPending) {
-                System.out.println("You have a pending request. Respond Y/N first.");
+            if (hasPending) {
+                System.out.println("You have a pending request. Reply Y/N first.");
                 return true;
             }
             handleCallCommand(message);
             return true;
         }
 
-        // Handle /streamvideo command locally
-        if (message.startsWith("/streamvideo ")) {
-            if (hasAnyPending) {
-                System.out.println("You have a pending request. Respond Y/N first.");
-                return true;
-            }
-            // For Stage 4 demo simplicity: treat /streamvideo as a webcam-style video call.
-            // (You can reintroduce real video-file streaming later if needed.)
-            handleStreamVideoCommand(message);
-            return true;
-        }
-
-        // Regular message or other command
         out.println(message);
         return true;
     }
@@ -249,16 +181,15 @@ public class ClientMain {
             System.out.println("Listening for incoming messages...");
             String received;
             while ((received = in.readLine()) != null) {
-                // Update GUI user list (structured message from server)
                 if (received.startsWith("ONLINE_USERS|")) {
                     String csv = received.substring("ONLINE_USERS|".length()).trim();
                     List<String> users = new ArrayList<>();
                     if (!csv.isEmpty()) {
                         String[] parts = csv.split(",");
                         for (String u : parts) {
-                            String cleaned = u.trim();
-                            if (!cleaned.isEmpty()) {
-                                users.add(cleaned);
+                            String name = u.trim();
+                            if (!name.isEmpty()) {
+                                users.add(name);
                             }
                         }
                     }
@@ -294,8 +225,7 @@ public class ClientMain {
                 }
 
                 if (received.startsWith("P2P_VIDEO_ACCEPTED|")) {
-                    String receiverUser = received.substring("P2P_VIDEO_ACCEPTED|".length());
-                    System.out.println("@" + receiverUser + " accepted your video call.");
+                    handleVideoAccepted(received);
                     continue;
                 }
                 if (received.startsWith("P2P_VIDEO_DECLINED|")) {
@@ -332,7 +262,7 @@ public class ClientMain {
     }
 
     private static void handleFileOffer(String message) {
-        // Format: P2P_FILE_OFFER|senderUsername|fileName|senderIP|senderPort|fileSize
+        // P2P_FILE_OFFER|senderUsername|fileName|senderIP|senderPort|fileSize
         String[] parts = message.split("\\|");
         if (parts.length != 6) {
             System.out.println("Invalid file offer format.");
@@ -345,7 +275,6 @@ public class ClientMain {
         int senderPort = Integer.parseInt(parts[4]);
         long fileSize = Long.parseLong(parts[5]);
 
-        // GUI prompt
         if (gui != null) {
             SwingUtilities.invokeLater(() -> {
                 int choice = JOptionPane.showConfirmDialog(
@@ -365,13 +294,35 @@ public class ClientMain {
             return;
         }
 
-        // Terminal fallback
         pendingOffer = new PendingOffer(senderUser, fileName, senderIP, senderPort, fileSize);
         System.out.println("Incoming '" + fileName + "' from @" + senderUser + " (" + fileSize + " bytes). Accept? [Y/N]");
     }
 
+    private static void handleVideoAccepted(String message) {
+        // P2P_VIDEO_ACCEPTED|acceptorUsername|acceptorIP|acceptorPort
+        String[] parts = message.split("\\|");
+        if (parts.length != 4) {
+            System.out.println("Invalid video accepted format.");
+            return;
+        }
+
+        String acceptorUser = parts[1];
+        String acceptorIP = parts[2];
+        int acceptorPort;
+
+        try {
+            acceptorPort = Integer.parseInt(parts[3]);
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid acceptor video port.");
+            return;
+        }
+
+        System.out.println("@" + acceptorUser + " accepted your video call.");
+        VideoCallReceiver.receiveVideo(acceptorIP, acceptorPort, acceptorUser);
+    }
+
     private static void handleVideoOffer(String message) {
-        // Format: P2P_VIDEO_INCOMING|senderUsername|senderIP|senderPort
+        // P2P_VIDEO_INCOMING|senderUsername|senderIP|senderPort
         String[] parts = message.split("\\|");
         if (parts.length != 4) {
             System.out.println("Invalid video offer format.");
@@ -398,8 +349,7 @@ public class ClientMain {
                 );
 
                 if (choice == JOptionPane.YES_OPTION) {
-                    out.println("P2P_VIDEO_ACCEPT|" + senderUser);
-                    VideoCallReceiver.receiveVideo(senderIP, senderPort, senderUser);
+                    acceptTwoWayVideoCall(senderUser, senderIP, senderPort);
                 } else {
                     out.println("P2P_VIDEO_DECLINE|" + senderUser);
                 }
@@ -407,14 +357,12 @@ public class ClientMain {
             return;
         }
 
-        // Terminal fallback
         pendingVideoOffer = new PendingVideoOffer(senderUser, senderIP, senderPort);
         System.out.println("Incoming video call from @" + senderUser + ". Accept? [Y/N]");
     }
 
     private static void handleVideoStreamOffer(String message) {
-        // Accepting a stream offer starts a regular P2P webcam receiver.
-        // Format: P2P_VIDSTREAM_INCOMING|senderUsername|fileName|senderIP|senderPort|fileSize
+        // P2P_VIDSTREAM_INCOMING|senderUsername|fileName|senderIP|senderPort|fileSize
         String[] parts = message.split("\\|");
         if (parts.length != 6) {
             System.out.println("Invalid video stream offer format.");
@@ -451,12 +399,9 @@ public class ClientMain {
             return;
         }
 
-        // Terminal fallback
-        pendingVideoStreamOffer = new PendingVideoStreamOffer(senderUser, parts[2], senderIP, senderPort, 0);
-        System.out.println("Incoming video stream from @" + senderUser + ". Accept? [Y/N]");
+        System.out.println("Incoming video stream from @" + senderUser + ". Please accept/decline in the GUI.");
     }
 
-    // Simple GUI helper: send file to the currently selected user.
     private static void guiSendFile() {
         if (gui == null) return;
         String target = gui.getSelectedUser();
@@ -477,7 +422,6 @@ public class ClientMain {
             return;
         }
 
-        // reuse existing terminal command handler
         handleOutgoingLine("/sendfile @" + target + " " + file.getAbsolutePath());
     }
 
@@ -488,7 +432,7 @@ public class ClientMain {
     }
 
     private static void handleSendFile(String message) {
-        // Format: /sendfile @username /path/to/file
+        // /sendfile @username /path/to/file
         String args = message.substring("/sendfile ".length()).trim();
         if (!args.startsWith("@")) {
             System.out.println("Usage: /sendfile @username /path/to/file");
@@ -511,11 +455,9 @@ public class ClientMain {
         }
 
         try {
-            // Open a P2P server socket and wait in background
             FileSender sender = new FileSender(file);
             sender.waitAndSend();
 
-            // Tell the server to forward our offer to the target
             String signal = "P2P_OFFER|" + targetUser + "|" + file.getName() + "|" + sender.getPort() + "|" + file.length();
             out.println(signal);
 
@@ -525,8 +467,27 @@ public class ClientMain {
         }
     }
 
+    private static int startOutgoingVideoSender() {
+        activeVideoSender = new VideoCallSender();
+        return activeVideoSender.startVideoCall();
+    }
+
+    private static void acceptTwoWayVideoCall(String callerUser, String callerIP, int callerPort) {
+        int myReturnPort = startOutgoingVideoSender();
+        if (myReturnPort == -1) {
+            System.out.println("Failed to start webcam for return stream.");
+            out.println("P2P_VIDEO_DECLINE|" + callerUser);
+            return;
+        }
+
+        out.println("P2P_VIDEO_ACCEPT|" + callerUser + "|" + myReturnPort);
+        VideoCallReceiver.receiveVideo(callerIP, callerPort, callerUser);
+
+        System.out.println("Accepted video call from @" + callerUser + ".");
+    }
+
     private static void handleCallCommand(String message) {
-        // Format: /call @username
+        // /call @username
         String args = message.substring("/call ".length()).trim();
         if (!args.startsWith("@") || args.length() < 2 || args.contains(" ")) {
             System.out.println("Usage: /call @username");
@@ -535,40 +496,13 @@ public class ClientMain {
 
         String targetUser = args.substring(1);
 
-        VideoCallSender sender = new VideoCallSender();
-        int port = sender.startVideoCall();
+        int port = startOutgoingVideoSender();
         if (port == -1) {
             System.out.println("Failed to start video call sender.");
             return;
         }
 
-        // Server is signaling-only; actual media is P2P to this sender port.
         out.println("P2P_VIDEO_OFFER|" + targetUser + "|" + port);
         System.out.println("Video call request sent to @" + targetUser + ". Waiting for response...");
-    }
-
-    private static void handleStreamVideoCommand(String message) {
-        // Previously: stream a stored video file.
-        // Now (simple Stage 4): treat this as a webcam video call offer to keep P2P demo working.
-        // Format: /streamvideo @username
-        String args = message.substring("/streamvideo ".length()).trim();
-        if (!args.startsWith("@") || args.length() < 2 || args.contains(" ")) {
-            System.out.println("Usage: /streamvideo @username");
-            return;
-        }
-
-        String targetUser = args.substring(1);
-
-        VideoCallSender sender = new VideoCallSender();
-        int port = sender.startVideoCall();
-        if (port == -1) {
-            System.out.println("[VIDEO] Failed to start webcam call.");
-            return;
-        }
-
-        // Keep using the existing stream-signaling message to avoid changing server code right now.
-        // (Server forwards P2P_VIDSTREAM_INCOMING which the receiver treats as a video call.)
-        out.println("P2P_VIDSTREAM_OFFER|" + targetUser + "|" + "webcam" + "|" + port + "|0");
-        System.out.println("Video stream (webcam) offer sent to @" + targetUser + ".");
     }
 }

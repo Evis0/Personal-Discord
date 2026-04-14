@@ -19,8 +19,10 @@ public class ServerMain {
 
     private static final List<ClientHandler> clients = new ArrayList<>();
     private static final Map<String, String> userStatuses = new HashMap<>();
-    // Use a concurrent map so username registration can be done with atomic operations (putIfAbsent)
+
+    // username -> handler
     private static final ConcurrentHashMap<String, ClientHandler> activeUsernames = new ConcurrentHashMap<>();
+
     private static final ReentrantLock fileLock = new ReentrantLock();
     private static final Lock clientsMutex = new ReentrantLock();
     private static final Lock usernamesMutex = new ReentrantLock();
@@ -32,8 +34,6 @@ public class ServerMain {
     private static final List<String> renameHistory = new ArrayList<>();
 
     public static void main(String[] args) {
-        
-
         if (args.length != 1) {
             System.out.println("Usage: java ServerMain <port>");
             return;
@@ -42,19 +42,16 @@ public class ServerMain {
         int port = Integer.parseInt(args[0]);
 
         try (ServerSocket serverSocket = new ServerSocket(port)) {
-
             System.out.println("Server listening on port " + port);
-            System.out.println("Waiting for clients to connect...");
+            System.out.println("Waiting for clients...");
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
-                System.out.println("Client connected from: "
-                        + clientSocket.getRemoteSocketAddress());
+                System.out.println("Client connected from: " + clientSocket.getRemoteSocketAddress());
 
                 ClientHandler handler = new ClientHandler(clientSocket);
-                // Don't add to clients list yet - wait until they successfully register
+                // handler registers itself before we add it to the list
                 new Thread(handler).start();
-
             }
 
         } catch (Exception e) {
@@ -64,8 +61,7 @@ public class ServerMain {
     }
 
     public static void broadcast(String message, ClientHandler sender) {
-
-        // thread safe ver (reentrantlock ensures only one thread writes at a time)
+        // write to log
         fileLock.lock();
         try (BufferedWriter writer = new BufferedWriter(new FileWriter("../chatlog.txt", true))) {
             writer.write(message);
@@ -73,20 +69,9 @@ public class ServerMain {
         } catch (IOException e) {
             System.out.println("[SERVER] Error writing to chat log: " + e.getMessage());
         } finally {
-            fileLock.unlock(); // always unlock even if exceptions happen
+            fileLock.unlock();
         }
 
-        // thread unsafe ver
-        // without any lock two threads could have mixed lines as a race condition
-
-        // try (BufferedWriter writer = new BufferedWriter(new FileWriter("chatlog.txt", true))) {
-        //     writer.write(message);
-        //     writer.newLine();
-        // } catch (IOException e) {
-        //     System.out.println("[SERVER] Error writing to chat log: " + e.getMessage());
-        // }
-
-        // send to clients
         synchronized (clients) {
             System.out.println("[SERVER] Broadcasting: " + message);
             for (ClientHandler client : clients) {
@@ -95,10 +80,7 @@ public class ServerMain {
         }
     }
 
-    /**
-     * Broadcast a structured online user list for GUI clients.
-     * Format: ONLINE_USERS|user1,user2,user3
-     */
+    // Format: ONLINE_USERS|user1,user2,user3
     public static void broadcastOnlineUsers() {
         String usernames;
         usernamesMutex.lock();
@@ -108,7 +90,6 @@ public class ServerMain {
             usernamesMutex.unlock();
         }
 
-        // send to clients
         synchronized (clients) {
             for (ClientHandler client : clients) {
                 client.sendMessage("ONLINE_USERS|" + usernames);
@@ -120,7 +101,6 @@ public class ServerMain {
         synchronized (clients) {
             clients.remove(client);
         }
-        // After removal, push updated list
         broadcastOnlineUsers();
     }
 
@@ -128,11 +108,10 @@ public class ServerMain {
         synchronized (clients) {
             clients.add(client);
         }
-        // After add, push updated list
         broadcastOnlineUsers();
     }
 
-        public static void sendChatHistory(ClientHandler client) {
+    public static void sendChatHistory(ClientHandler client) {
         fileLock.lock();
         try (BufferedReader reader = new BufferedReader(new FileReader("chatlog.txt"))) {
             client.sendMessage("SERVER: Chat History");
@@ -148,7 +127,6 @@ public class ServerMain {
         }
     }
 
-    // Thread-safe: reads size using Mutex instead of synchronized
     public static int getOnlineCount() {
         clientsMutex.lock();
         try {
@@ -158,7 +136,6 @@ public class ServerMain {
         }
     }
 
-    // Thread-safe: returns comma-separated list of online usernames
     public static String getOnlineUsernames() {
         usernamesMutex.lock();
         try {
@@ -171,97 +148,55 @@ public class ServerMain {
         }
     }
 
-    // new Thread(() -> unsafeAddClient(handler)).start(); // UNSAFE demo
-
-     /*
-
-    // UNSAFE demonstration
-    private static int clientCount = 0;
-
-    public static void unsafeAddClient(ClientHandler h) {
-        int temp = clientCount;       // Step 1: Read
-        // Simulate delay between read and write so another thread can interfere
-        try { Thread.sleep(7000); } catch (InterruptedException e) {}
-        clientCount = temp + 1;       // Step 2: Write back (may overwrite another thread's update)
-    }
-
-    public static int getOnlineCount() {
-        return clientCount;           // No lock - reads potentially stale value
-    }
-
-      */
-
-
     public static void updateStatus(String username, String status) {
-    synchronized (userStatuses) {
-        userStatuses.put(username, status);
+        synchronized (userStatuses) {
+            userStatuses.put(username, status);
         }
     }
 
     public static String getStatus(String username) {
-    synchronized (userStatuses) {
-        return userStatuses.getOrDefault(username, "No status set.");
+        synchronized (userStatuses) {
+            return userStatuses.getOrDefault(username, "No status set.");
         }
     }
 
-    
     public static boolean isUsernameTaken(String username) {
         return activeUsernames.containsKey(username);
     }
 
-    // THREAD-SAFE (no explicit synchronized): atomically check and register username
     public static boolean checkAndRegisterUsername(String username, ClientHandler handler) {
         ClientHandler existing = activeUsernames.putIfAbsent(username, handler);
         if (existing != null) {
-            return false; // Username already taken
+            return false;
         }
         System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
-        return true; // Successfully registered
+        return true;
     }
 
-    // Register a username (THREAD SAFE)
     public static void registerUsername(String username, ClientHandler handler) {
         activeUsernames.put(username, handler);
         System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
     }
 
-    // Unregister a username when client disconnects
     public static void unregisterUsername(String username) {
         activeUsernames.remove(username);
         System.out.println("[SERVER] Username unregistered: '" + username + "' | Total active users: " + activeUsernames.size());
         broadcastOnlineUsers();
     }
 
-    // Get a client handler by username (for P2P signalling)
     public static ClientHandler getClientByUsername(String username) {
         return activeUsernames.get(username);
     }
 
-
-    public static void renameRoom( String newName, String username) {
-
-        //change group name (thread safe version)
-       synchronized (roomLock) {
+    public static void renameRoom(String newName, String username) {
+        synchronized (roomLock) {
             renameCount++;
             roomName = newName;
             renameHistory.add(newName);
         }
-
-
-        //unsafe thread version
-
-       /* int temp = renameCount;      //read
-        Thread.yield();              //encourage thread interleaving
-        renameCount = temp + 1;      //write (lost updates possible)
-
-        roomName = newName;
-        renameHistory.add(newName);
-
-
-        */
     }
 
-    //comment out synchronized in both below to show unsafe reads
+    // comment out synchronized in both below to show unsafe reads
     public static String getRoomName() {
         synchronized (roomLock) {
             return roomName;
