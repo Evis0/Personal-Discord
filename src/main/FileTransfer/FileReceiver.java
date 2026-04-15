@@ -55,18 +55,6 @@ public class FileReceiver {
 
                 System.out.println("Saved to: " + outputFile.getAbsolutePath());
 
-                // AUTO-OPEN IMAGE OR VIDEO
-                String absolutePath = outputFile.getAbsolutePath();
-                String filename = fileName.toLowerCase();
-
-                if (filename.endsWith(".jpg") || filename.endsWith(".jpeg") ||
-                        filename.endsWith(".png") || filename.endsWith(".gif") ||
-                        filename.endsWith(".mp4") || filename.endsWith(".avi") ||
-                        filename.endsWith(".mov") || filename.endsWith(".mkv")) {
-
-                    System.out.println("Opening: " + fileName);
-                    MediaViewer.viewMedia(absolutePath);
-                }
 
                 socket.close();
 
