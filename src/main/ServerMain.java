@@ -12,8 +12,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.io.BufferedReader;
-import java.io.FileReader;
 
 public class ServerMain {
 
@@ -112,19 +110,8 @@ public class ServerMain {
     }
 
     public static void sendChatHistory(ClientHandler client) {
-        fileLock.lock();
-        try (BufferedReader reader = new BufferedReader(new FileReader("chatlog.txt"))) {
-            client.sendMessage("SERVER: Chat History");
-            String line;
-            while ((line = reader.readLine()) != null) {
-                client.sendMessage(line);
-            }
-            client.sendMessage("SERVER: End of History");
-        } catch (IOException e) {
-            client.sendMessage("SERVER: No chat history yet.");
-        } finally {
-            fileLock.unlock();
-        }
+        // Disabled: do not read chatlog.txt or push prior messages to newly connected clients.
+        // (Kept as a no-op to avoid breaking any callers.)
     }
 
     public static int getOnlineCount() {

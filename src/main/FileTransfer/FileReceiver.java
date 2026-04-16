@@ -2,6 +2,7 @@ package main.FileTransfer;
 
 import java.io.*;
 import java.net.Socket;
+import main.FileTransfer.MediaViewer;
 
 /**
  * P2P File Receiver - connects directly to the sender's IP:port to download.
@@ -55,6 +56,11 @@ public class FileReceiver {
 
                 System.out.println("Saved to: " + outputFile.getAbsolutePath());
 
+                // Auto-display images / open videos with default app (minimal UI for demo)
+                try {
+                    MediaViewer.openIfMedia(outputFile);
+                } catch (Exception ignored) {
+                }
 
                 socket.close();
 
