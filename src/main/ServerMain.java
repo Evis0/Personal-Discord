@@ -39,6 +39,13 @@ public class ServerMain {
 
         int port = Integer.parseInt(args[0]);
 
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("../chatlog.txt", false))) {
+
+        } catch (IOException e) {
+            System.out.println("[SERVER] Warning: could not clear chatlog.txt: " + e.getMessage());
+            
+        }
+
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             System.out.println("Server listening on port " + port);
             System.out.println("Waiting for clients...");
