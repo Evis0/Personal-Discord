@@ -39,7 +39,7 @@ public class ServerMain {
 
         int port = Integer.parseInt(args[0]);
 
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter("../chatlog.txt", false))) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("chatlog.txt", false))) {
 
         } catch (IOException e) {
             System.out.println("[SERVER] Warning: could not clear chatlog.txt: " + e.getMessage());
@@ -68,7 +68,7 @@ public class ServerMain {
     public static void broadcast(String message, ClientHandler sender) {
         // write to log
         fileLock.lock();
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter("../chatlog.txt", true))) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("chatlog.txt", true))) {
             writer.write(message);
             writer.newLine();
         } catch (IOException e) {
