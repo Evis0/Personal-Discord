@@ -52,7 +52,7 @@ public class ClientHandler implements Runnable {
             out.println("SERVER: Welcome " + username + "! You are now connected.");
             out.println("SERVER: You are in the '" + ServerMain.getRoomName() + "' room.");
             out.println("SERVER: Commands: /rename <name> | /roomname | /online | /sendfile @username <filepath> | /call @username");
-            // Chat history disabled for demo (do not read chatlog.txt / do not send "End of History")
+            ServerMain.sendChatHistory(this);
 
             String message;
             while ((message = in.readLine()) != null) {

@@ -117,8 +117,20 @@ public class ServerMain {
     }
 
     public static void sendChatHistory(ClientHandler client) {
-        // Disabled: do not read chatlog.txt or push prior messages to newly connected clients.
-        // (Kept as a no-op to avoid breaking any callers.)
+        fileLock.lock();
+
+        try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader("chatlog.txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                client.sendMessage(line);
+            }
+
+        } catch (java.io.FileNotFoundException e) {
+        } catch (IOException e) {
+            System.out.println("[SERVER] Error reading chat log: " + e.getMessage());
+        } finally {
+            fileLock.unlock();
+        }
     }
 
     public static int getOnlineCount() {
