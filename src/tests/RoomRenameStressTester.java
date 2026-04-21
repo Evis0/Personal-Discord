@@ -11,10 +11,13 @@ import java.util.concurrent.CountDownLatch;
 
 public class RoomRenameStressTester {                       
 
-    // If the implementation is thread-safe, renameCount and historySize
+    // If the implementation is thread-safe renameCount and historySize
     // should always be equal in the final stats output.
     // In the unsafe version, concurrent renames can cause lost updates,
     // so renameCount and/or historySize may be lower due to race conditions
+
+    //renameCount = number of successful renames
+    // historySize = number of recorded renames
 
 
 
@@ -27,14 +30,14 @@ public class RoomRenameStressTester {
         CountDownLatch start = new CountDownLatch(1);
         CountDownLatch done = new CountDownLatch(threadCount);
 
-        for (int i = 0; i < threadCount; i++) {
+        for (int i = 0; i < threadCount; i++) { //simulate 20 clients
             final int id = i;
             new Thread(() -> {
                 try (Socket socket = new Socket(host, port);
                      PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
                      BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
-                    in.readLine(); // username prompt
+                    in.readLine(); // username prompt and ensure user is fully connected
                     out.println("user" + id);
 
                     String line;
@@ -44,7 +47,7 @@ public class RoomRenameStressTester {
                         }
                     }
 
-                    ready.countDown();
+                    ready.countDown(); //sychronise all threads
                     start.await();
 
                     out.println("/rename room" + id);
@@ -59,7 +62,7 @@ public class RoomRenameStressTester {
         }
 
         ready.await();
-        start.countDown();
+        start.countDown(); // wait for all threads
         done.await();
 
         try (Socket socket = new Socket(host, port);
@@ -69,16 +72,17 @@ public class RoomRenameStressTester {
             in.readLine(); // username prompt
             out.println("statsUser");
 
-            String line;
+            String line; // wait until the server finishes sending setup messages
+                        // ensures the client is fully connected before sending commands
             while ((line = in.readLine()) != null) {
                 if (line.startsWith("SERVER: Commands:")) {
                     break;
                 }
             }
 
-            out.println("/roomstats");
+            out.println("/roomstats"); //request room stats from server
 
-            while ((line = in.readLine()) != null) {
+            while ((line = in.readLine()) != null) { //read stats
                 if (line.startsWith("SERVER: Current room stats is:")) {
                     System.out.println("Final stats: " + line);
                     break;

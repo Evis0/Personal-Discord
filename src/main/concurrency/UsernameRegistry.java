@@ -1,4 +1,4 @@
-package main.concurrency;
+package main.concurrency; //safe and unsafe username registry is now unused
 
 import main.ClientHandler;
 

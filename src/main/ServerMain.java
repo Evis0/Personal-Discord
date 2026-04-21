@@ -12,6 +12,12 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import main.concurrency.RoomManager;
+import main.concurrency.SafeRoomManager;
+import main.concurrency.UnsafeRoomManager;
+import main.concurrency.UsernameRegistry;
+import main.concurrency.SafeUsernameRegistry;
+import main.concurrency.UnsafeUsernameRegistry;
 
 public class ServerMain {
 
@@ -19,17 +25,16 @@ public class ServerMain {
     private static final Map<String, String> userStatuses = new HashMap<>();
 
     // username -> handler
+
     private static final ConcurrentHashMap<String, ClientHandler> activeUsernames = new ConcurrentHashMap<>();
 
     private static final ReentrantLock fileLock = new ReentrantLock();
     private static final Lock clientsMutex = new ReentrantLock();
     private static final Lock usernamesMutex = new ReentrantLock();
 
-    private static final Object roomLock = new Object();
-    private static String roomName = "Main";
+    private static RoomManager roomManager = new SafeRoomManager();
+    // private static RoomManager roomManager = new UnsafeRoomManager();
 
-    private static int renameCount = 0;
-    private static final List<String> renameHistory = new ArrayList<>();
 
     public static void main(String[] args) {
         if (args.length != 1) {
@@ -170,7 +175,7 @@ public class ServerMain {
         return activeUsernames.containsKey(username);
     }
 
-    public static boolean checkAndRegisterUsername(String username, ClientHandler handler) {
+    public static boolean checkAndRegisterUsername(String username, ClientHandler handler) { // comment for unsafe
         ClientHandler existing = activeUsernames.putIfAbsent(username, handler);
         if (existing != null) {
             return false;
@@ -178,6 +183,28 @@ public class ServerMain {
         System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
         return true;
     }
+
+//      public static boolean checkAndRegisterUsername(String username, ClientHandler handler) { //uncomment for unsafe username - This implementation is not thread-safe because the check (containsKey) and the update (put) are performed as separate operations.
+//        if (activeUsernames.containsKey(username)) {
+//            return false;
+//        }
+//
+//        try {
+//            Thread.sleep(10);
+//        } catch (InterruptedException e) {
+//            Thread.currentThread().interrupt();
+//        }
+//
+//        activeUsernames.put(username, handler);
+//
+//       System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
+//        return true;
+//    }
+
+
+
+
+
 
     public static void registerUsername(String username, ClientHandler handler) {
         activeUsernames.put(username, handler);
@@ -195,25 +222,15 @@ public class ServerMain {
     }
 
     public static void renameRoom(String newName, String username) {
-        synchronized (roomLock) {
-            renameCount++;
-            roomName = newName;
-            renameHistory.add(newName);
-        }
+        roomManager.renameRoom(newName, username);
     }
 
-    // comment out synchronized in both below to show unsafe reads
+
     public static String getRoomName() {
-        synchronized (roomLock) {
-            return roomName;
-        }
+        return roomManager.getRoomName();
     }
 
     public static String getRoomStats() {
-        synchronized (roomLock) {
-            return "roomName =" + roomName +
-                    " renameCount =" + renameCount +
-                    " historySize =" + renameHistory.size();
-        }
+        return roomManager.getRoomStats();
     }
 }
