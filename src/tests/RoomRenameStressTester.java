@@ -7,10 +7,12 @@ import java.net.Socket;
 
 public class RoomRenameStressTester {
 
+
     public static void main(String[] args) {
         String host = "localhost";
         int port = 8082;
-        int threadCount = 20;
+        int threadCount = 20; // number of rename requests
+
 
         for (int i = 0; i < threadCount; i++) {
             final int id = i;
@@ -30,9 +32,9 @@ public class RoomRenameStressTester {
                         }
                     }
 
-                    out.println("/rename room" + id);
+                    out.println("/rename room" + id); // each client attempts to rename the room
 
-                    Thread.sleep(1000);
+                    Thread.sleep(1000); // short delay to keep connection open
 
                 } catch (Exception e) {
                     System.out.println("Tester thread error: " + e.getMessage());
@@ -45,7 +47,7 @@ public class RoomRenameStressTester {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-
+        //  separate client to request final room stats
         try (Socket socket = new Socket(host, port);
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
@@ -59,8 +61,10 @@ public class RoomRenameStressTester {
                     break;
                 }
             }
-
+            // Request room statistics
             out.println("/roomstats");
+
+            // Print final stats
 
             while ((line = in.readLine()) != null) {
                 if (line.startsWith("SERVER: Current room stats is:")) {
