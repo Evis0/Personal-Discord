@@ -6,7 +6,7 @@ import java.net.Socket;
 public class UsernameStressTester {
     public static void main(String[] args) { //safe when 1 user connects, unsafe when all users connect.
         String host = "localhost";
-        int port = 8082;
+        int port = 8080;
         String sharedUsername = "TestUser";
 
         // launch 10 threads at the same time

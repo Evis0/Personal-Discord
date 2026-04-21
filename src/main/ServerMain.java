@@ -12,12 +12,15 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import main.concurrency.RoomManager;
-import main.concurrency.SafeRoomManager;
-import main.concurrency.UnsafeRoomManager;
-import main.concurrency.UsernameRegistry;
-import main.concurrency.SafeUsernameRegistry;
-import main.concurrency.UnsafeUsernameRegistry;
+import main.concurrency.ChatLogger;
+import main.concurrency.OnlineStatusManager;
+import main.concurrency.SafeOnlineStatusManager;
+import main.concurrency.SafeChatLogger;
+import main.concurrency.UnsafeOnlineStatusManager;
+import main.concurrency.UnsafeChatLogger;
+
+
+import main.concurrency.*;
 
 public class ServerMain {
 
@@ -32,9 +35,34 @@ public class ServerMain {
     private static final Lock clientsMutex = new ReentrantLock();
     private static final Lock usernamesMutex = new ReentrantLock();
 
-    private static RoomManager roomManager = new SafeRoomManager();
-    // private static RoomManager roomManager = new UnsafeRoomManager();
+    // private static RoomManager roomManager = new SafeRoomManager();
+    private static RoomManager roomManager = new UnsafeRoomManager();
 
+    // private static ChatLogger chatLogger = new SafeChatLogger();
+    private static ChatLogger chatLogger = new UnsafeChatLogger();
+
+    private static OnlineStatusManager onlineStatusManager = new SafeOnlineStatusManager();
+    // private static OnlineStatusManager onlineStatusManager = new UnsafeOnlineStatusManager();
+
+    public static void markOnline(String username) {
+        onlineStatusManager.markOnline(username);
+    }
+
+    public static void markOffline(String username) {
+        onlineStatusManager.markOffline(username);
+    }
+
+//    public static int getOnlineCount() {
+//        return onlineStatusManager.getOnlineCount();
+//    }
+
+    public static String getOnlineStatusMessage() {
+        return onlineStatusManager.getOnlineStatusMessage();
+    }
+
+    public static String getChatLoggerStats() {
+        return chatLogger.getLogStats();
+    }
 
     public static void main(String[] args) {
         if (args.length != 1) {
@@ -71,16 +99,21 @@ public class ServerMain {
     }
 
     public static void broadcast(String message, ClientHandler sender) {
+        chatLogger.logMessage(message);
+        System.out.println("[SERVER] " + chatLogger.getLogStats());
+
+
         // write to log
-        fileLock.lock();
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter("chatlog.txt", true))) {
-            writer.write(message);
-            writer.newLine();
-        } catch (IOException e) {
-            System.out.println("[SERVER] Error writing to chat log: " + e.getMessage());
-        } finally {
-            fileLock.unlock();
-        }
+
+//        fileLock.lock();
+//        try (BufferedWriter writer = new BufferedWriter(new FileWriter("chatlog.txt", true))) {
+//            writer.write(message);
+//            writer.newLine();
+//        } catch (IOException e) {
+//            System.out.println("[SERVER] Error writing to chat log: " + e.getMessage());
+//        } finally {
+//            fileLock.unlock();
+//        }
 
         synchronized (clients) {
             System.out.println("[SERVER] Broadcasting: " + message);
@@ -199,6 +232,7 @@ public class ServerMain {
 //
 //       System.out.println("[SERVER] Username registered: '" + username + "' | Total active users: " + activeUsernames.size());
 //        return true;
+//
 //    }
 
 
@@ -216,6 +250,7 @@ public class ServerMain {
         System.out.println("[SERVER] Username unregistered: '" + username + "' | Total active users: " + activeUsernames.size());
         broadcastOnlineUsers();
     }
+
 
     public static ClientHandler getClientByUsername(String username) {
         return activeUsernames.get(username);

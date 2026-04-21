@@ -46,6 +46,7 @@ public class ClientHandler implements Runnable {
             }
 
             registered = true;
+            ServerMain.markOnline(username);
             ServerMain.addClient(this);
 
             ServerMain.broadcast("SERVER: " + username + " has joined the chat!", this);
@@ -282,6 +283,7 @@ public class ClientHandler implements Runnable {
         try {
             if (registered && username != null) {
                 System.out.println("[SERVER] Cleaning up user '" + username + "' - disconnecting...");
+                ServerMain.markOffline(username);
                 ServerMain.unregisterUsername(username);
                 ServerMain.broadcast("SERVER: " + username + " has left the chat.", this);
             }
