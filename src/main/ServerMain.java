@@ -36,13 +36,13 @@ public class ServerMain {
     private static final Lock usernamesMutex = new ReentrantLock();
 
     private static RoomManager roomManager = new SafeRoomManager();
-    // private static RoomManager roomManager = new UnsafeRoomManager();
+   // private static RoomManager roomManager = new UnsafeRoomManager();
 
     private static ChatLogger chatLogger = new SafeChatLogger();
-    // private static ChatLogger chatLogger = new UnsafeChatLogger();
+  // private static ChatLogger chatLogger = new UnsafeChatLogger();
 
-    static OnlineStatusManager onlineStatusManager = new SafeOnlineStatusManager();
-    // private static OnlineStatusManager onlineStatusManager = new UnsafeOnlineStatusManager();
+   // static OnlineStatusManager onlineStatusManager = new SafeOnlineStatusManager();
+    private static OnlineStatusManager onlineStatusManager = new UnsafeOnlineStatusManager();
 
 
 

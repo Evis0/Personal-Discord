@@ -4,22 +4,16 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.concurrent.CountDownLatch;
 
 public class OnlineStatusStressTester {
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         String host = "localhost";
         int port = 8082;
 
         int stableClients = 5;
         int leavingClients = 10;
         int onlineChecks = 20;
-
-        CountDownLatch stableReady = new CountDownLatch(stableClients);
-        CountDownLatch leaversReady = new CountDownLatch(leavingClients);
-        CountDownLatch startLeaving = new CountDownLatch(1);
-        CountDownLatch leaversDone = new CountDownLatch(leavingClients);
 
         Socket[] stableSockets = new Socket[stableClients];
 
@@ -30,30 +24,32 @@ public class OnlineStatusStressTester {
                     stableSockets[id] = connectClient(host, port, "stableUser" + id);
                 } catch (Exception e) {
                     System.out.println("Stable client error: " + e.getMessage());
-                } finally {
-                    stableReady.countDown();
                 }
             }).start();
         }
 
-        stableReady.await();
+        try {
+            Thread.sleep(1500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
 
         for (int i = 0; i < leavingClients; i++) {
             final int id = i;
             new Thread(() -> {
                 try (Socket socket = connectClient(host, port, "leaverUser" + id)) {
-                    leaversReady.countDown();
-                    startLeaving.await();
-                    Thread.sleep(100 + (id * 80));
+                    Thread.sleep(300 + (id * 100));
                 } catch (Exception e) {
                     System.out.println("Leaver client error: " + e.getMessage());
-                } finally {
-                    leaversDone.countDown();
                 }
             }).start();
         }
 
-        leaversReady.await();
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
 
         int successfulResponses = 0;
         int inconsistentResponses = 0;
@@ -64,11 +60,9 @@ public class OnlineStatusStressTester {
 
             observer.setSoTimeout(3000);
 
-            in.readLine();
+            in.readLine(); // username prompt
             out.println("onlineObserver");
             waitUntilReady(in);
-
-            startLeaving.countDown();
 
             for (int i = 0; i < onlineChecks; i++) {
                 out.println("/online");
@@ -89,9 +83,10 @@ public class OnlineStatusStressTester {
 
                 Thread.sleep(75);
             }
-        }
 
-        leaversDone.await();
+        } catch (Exception e) {
+            System.out.println("Observer error: " + e.getMessage());
+        }
 
         for (Socket socket : stableSockets) {
             try {
@@ -131,7 +126,7 @@ public class OnlineStatusStressTester {
     private static void waitUntilReady(BufferedReader in) throws Exception {
         String line;
         while ((line = in.readLine()) != null) {
-            if (line.startsWith("SERVER: Commands:") || line.startsWith("SERVER: Welcome")) {
+            if (line.startsWith("SERVER: Commands:")) {
                 break;
             }
         }

@@ -4,11 +4,10 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.concurrent.CountDownLatch;
 
 public class ChatLoggingStressTester {
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         String host = "localhost";
         int port = 8082;
 
@@ -16,10 +15,6 @@ public class ChatLoggingStressTester {
         int messagesPerThread = 20;
 
         String runId = "LOGTEST-" + System.currentTimeMillis();
-
-        CountDownLatch ready = new CountDownLatch(threadCount);
-        CountDownLatch start = new CountDownLatch(1);
-        CountDownLatch sent = new CountDownLatch(threadCount);
 
         for (int i = 0; i < threadCount; i++) {
             final int id = i;
@@ -39,29 +34,23 @@ public class ChatLoggingStressTester {
                         }
                     }
 
-                    ready.countDown();
-                    start.await();
-
                     for (int j = 0; j < messagesPerThread; j++) {
                         out.println(runId + "-T" + id + "-M" + j);
                     }
-
-                    sent.countDown();
 
                     Thread.sleep(5000);
 
                 } catch (Exception e) {
                     System.out.println("Tester thread error: " + e.getMessage());
-                    sent.countDown();
                 }
             }).start();
         }
 
-        ready.await();
-        start.countDown();
-        sent.await();
-
-        Thread.sleep(5000);
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
 
         int expectedMessages = threadCount * messagesPerThread;
         int actualLoggedCount = requestLogStats(host, port, runId);
