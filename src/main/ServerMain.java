@@ -39,11 +39,10 @@ public class ServerMain {
    // private static RoomManager roomManager = new UnsafeRoomManager();
 
     private static ChatLogger chatLogger = new SafeChatLogger();
-  // private static ChatLogger chatLogger = new UnsafeChatLogger();
+   // private static ChatLogger chatLogger = new UnsafeChatLogger();
 
-   static OnlineStatusManager onlineStatusManager = new SafeOnlineStatusManager();
+    private static OnlineStatusManager onlineStatusManager = new SafeOnlineStatusManager();
    // private static OnlineStatusManager onlineStatusManager = new UnsafeOnlineStatusManager();
-
 
 
     public static String getOnlineStatusMessage() {

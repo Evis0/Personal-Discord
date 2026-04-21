@@ -9,7 +9,7 @@ public class UnsafeOnlineStatusManager implements OnlineStatusManager {
         int count = ServerMain.getOnlineCount();
 
         try {
-            Thread.sleep(75);
+            Thread.sleep(500);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

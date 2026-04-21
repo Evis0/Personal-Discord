@@ -14,11 +14,13 @@ public class ChatLoggingStressTester {
         int threadCount = 50;
         int messagesPerThread = 20;
 
+        // unique label for this test run
         String runId = "LOGTEST-" + System.currentTimeMillis();
 
         for (int i = 0; i < threadCount; i++) {
             final int id = i;
 
+            // create client threads to send mesgs at the same time
             new Thread(() -> {
                 try (Socket socket = new Socket(host, port);
                      PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
@@ -27,6 +29,7 @@ public class ChatLoggingStressTester {
                     in.readLine(); // username prompt
                     out.println("logger" + id + "_" + runId);
 
+                    // wait until server setup is complete
                     String line;
                     while ((line = in.readLine()) != null) {
                         if (line.startsWith("SERVER: Commands:")) {
@@ -34,10 +37,12 @@ public class ChatLoggingStressTester {
                         }
                     }
 
+                    // send this threads test messages
                     for (int j = 0; j < messagesPerThread; j++) {
                         out.println(runId + "-T" + id + "-M" + j);
                     }
 
+                    // keep the connection open briefly so messages are fully processed
                     Thread.sleep(5000);
 
                 } catch (Exception e) {
@@ -46,6 +51,7 @@ public class ChatLoggingStressTester {
             }).start();
         }
 
+        // wait before requesting final logger stats
         try {
             Thread.sleep(5000);
         } catch (InterruptedException e) {
@@ -64,6 +70,7 @@ public class ChatLoggingStressTester {
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
+            // register a client that will ask the server for log stats
             in.readLine(); // username prompt
             out.println("statsUser_" + runId);
 
@@ -74,6 +81,7 @@ public class ChatLoggingStressTester {
                 }
             }
 
+            // ask server for current loggedcount value
             out.println("/logstats");
 
             while ((line = in.readLine()) != null) {
@@ -91,6 +99,7 @@ public class ChatLoggingStressTester {
 
     private static int extractLoggedCount(String statsLine) {
         try {
+            // extract the number from the server response
             return Integer.parseInt(statsLine.replace("LOG_STATS|loggedCount =", "").trim());
         } catch (Exception e) {
             return -1;

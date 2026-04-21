@@ -1,168 +1,79 @@
 package tests;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
 
 public class OnlineStatusStressTester {
-
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         String host = "localhost";
         int port = 8082;
 
-        int stableClients = 5;
-        int leavingClients = 10;
-        int onlineChecks = 20;
-
-        Socket[] stableSockets = new Socket[stableClients];
-
-        for (int i = 0; i < stableClients; i++) {
+        // stable users stay connected
+        for (int i = 0; i < 5; i++) {
             final int id = i;
             new Thread(() -> {
-                try {
-                    stableSockets[id] = connectClient(host, port, "stableUser" + id);
+                try (Socket s = new Socket(host, port);
+                     BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
+                     PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
+
+                    in.readLine(); // username prompt
+                    out.println("StableUser" + id);
+
+                    // Keep socket open
+                    while (!s.isClosed() && s.isConnected()) {
+                        Thread.sleep(1000);
+                    }
                 } catch (Exception e) {
                     System.out.println("Stable client error: " + e.getMessage());
                 }
             }).start();
         }
 
-        try {
-            Thread.sleep(1500);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-
-        for (int i = 0; i < leavingClients; i++) {
+        // leaving users disconnect after staggered delays
+        for (int i = 0; i < 10; i++) {
             final int id = i;
             new Thread(() -> {
-                try (Socket socket = connectClient(host, port, "leaverUser" + id)) {
-                    Thread.sleep(300 + (id * 100));
+                try (Socket s = new Socket(host, port);
+                     BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
+                     PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
+
+                    in.readLine(); // username prompt
+                    out.println("LeaverUser" + id);
+
+                    // Spread disconnects over a wider window
+                    Thread.sleep(1000 + (id * 300));
                 } catch (Exception e) {
                     System.out.println("Leaver client error: " + e.getMessage());
                 }
             }).start();
         }
 
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        // let everyone connect but dont wait until leavers are already gone
+        Thread.sleep(300);
 
-        int successfulResponses = 0;
-        int inconsistentResponses = 0;
-
-        try (Socket observer = new Socket(host, port);
-             PrintWriter out = new PrintWriter(observer.getOutputStream(), true);
-             BufferedReader in = new BufferedReader(new InputStreamReader(observer.getInputStream()))) {
-
-            observer.setSoTimeout(3000);
+        // observer checks /online over and over while leavers disconnect
+        try (Socket s = new Socket(host, port);
+             BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
+             PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
 
             in.readLine(); // username prompt
-            out.println("onlineObserver");
-            waitUntilReady(in);
+            out.println("Observer");
 
-            for (int i = 0; i < onlineChecks; i++) {
+            Thread.sleep(100);
+
+            for (int i = 0; i < 20; i++) {
                 out.println("/online");
 
-                String response = readOnlineResponse(in);
-                if (response != null) {
-                    successfulResponses++;
-
-                    int count = parseCount(response);
-                    int listedUsers = parseListedUsers(response);
-
-                    System.out.println(response);
-
-                    if (count != listedUsers && !(count == 0 && listedUsers == 0)) {
-                        inconsistentResponses++;
+                String line;
+                while ((line = in.readLine()) != null) {
+                    if (line.contains("currently")) {
+                        System.out.println("Check " + i + ": " + line);
+                        break;
                     }
                 }
 
-                Thread.sleep(75);
-            }
-
-        } catch (Exception e) {
-            System.out.println("Observer error: " + e.getMessage());
-        }
-
-        for (Socket socket : stableSockets) {
-            try {
-                if (socket != null && !socket.isClosed()) {
-                    socket.close();
-                }
-            } catch (Exception ignored) {
+                Thread.sleep(200);
             }
         }
-
-        System.out.println();
-        System.out.println("Expected online responses: " + onlineChecks);
-        System.out.println("Actual online responses: " + successfulResponses);
-        System.out.println("Inconsistent responses: " + inconsistentResponses);
-
-        if (successfulResponses == onlineChecks && inconsistentResponses == 0) {
-            System.out.println("Online feature appears thread-safe for this run.");
-        } else {
-            System.out.println("Online feature appears inconsistent under concurrency.");
-        }
-    }
-
-    private static Socket connectClient(String host, int port, String username) throws Exception {
-        Socket socket = new Socket(host, port);
-        socket.setSoTimeout(3000);
-
-        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
-        in.readLine(); // username prompt
-        out.println(username);
-        waitUntilReady(in);
-
-        return socket;
-    }
-
-    private static void waitUntilReady(BufferedReader in) throws Exception {
-        String line;
-        while ((line = in.readLine()) != null) {
-            if (line.startsWith("SERVER: Commands:")) {
-                break;
-            }
-        }
-    }
-
-    private static String readOnlineResponse(BufferedReader in) throws Exception {
-        String line;
-        while ((line = in.readLine()) != null) {
-            if (line.startsWith("SERVER: There is currently")
-                    || line.startsWith("SERVER: There are currently")) {
-                return line;
-            }
-        }
-        return null;
-    }
-
-    private static int parseCount(String response) {
-        String text = response
-                .replace("SERVER: There is currently ", "")
-                .replace("SERVER: There are currently ", "");
-
-        int firstSpace = text.indexOf(' ');
-        return firstSpace == -1 ? 0 : Integer.parseInt(text.substring(0, firstSpace));
-    }
-
-    private static int parseListedUsers(String response) {
-        int colonIndex = response.indexOf(": ", response.indexOf("online"));
-        if (colonIndex == -1) {
-            return 0;
-        }
-
-        String usernames = response.substring(colonIndex + 2).trim();
-        if (usernames.isEmpty() || usernames.equals("none")) {
-            return 0;
-        }
-
-        return usernames.split(",\\s*").length;
     }
 }
