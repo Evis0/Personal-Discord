@@ -41,8 +41,8 @@ public class ServerMain {
     private static ChatLogger chatLogger = new SafeChatLogger();
   // private static ChatLogger chatLogger = new UnsafeChatLogger();
 
-   // static OnlineStatusManager onlineStatusManager = new SafeOnlineStatusManager();
-    private static OnlineStatusManager onlineStatusManager = new UnsafeOnlineStatusManager();
+   static OnlineStatusManager onlineStatusManager = new SafeOnlineStatusManager();
+   // private static OnlineStatusManager onlineStatusManager = new UnsafeOnlineStatusManager();
 
 
 
