@@ -46,7 +46,6 @@ public class ClientHandler implements Runnable {
             }
 
             registered = true;
-            ServerMain.markOnline(username);
             ServerMain.addClient(this);
 
             ServerMain.broadcast("SERVER: " + username + " has joined the chat!", this);
@@ -218,6 +217,7 @@ public class ClientHandler implements Runnable {
                     sendMessage("  /roomname");
                     sendMessage("  /online");
                     sendMessage("  /help");
+                    sendMessage("  /logstats");
                     continue;
                 }
 
@@ -244,16 +244,25 @@ public class ClientHandler implements Runnable {
                     continue;
                 }
 
-                if (message.equalsIgnoreCase("/online")) {
-                    int count = ServerMain.getOnlineCount();
-                    String usernames = ServerMain.getOnlineUsernames();
-                    if (count == 1) {
-                        sendMessage("SERVER: There is currently 1 client online: " + usernames);
-                    } else {
-                        sendMessage("SERVER: There are currently " + count + " client(s) online: " + usernames);
-                    }
+                if (message.equalsIgnoreCase("/logstats")) {
+                    sendMessage("LOG_STATS|" + ServerMain.getChatLoggerStats());
                     continue;
                 }
+
+                if (message.equalsIgnoreCase("/online")) {
+                    sendMessage(ServerMain.getOnlineStatusMessage());
+                    continue;
+
+                }
+//                    int count = ServerMain.getOnlineCount();
+//                    String usernames = ServerMain.getOnlineUsernames();
+//                    if (count == 1) {
+//                        sendMessage("SERVER: There is currently 1 client online: " + usernames);
+//                    } else {
+//                        sendMessage("SERVER: There are currently " + count + " client(s) online: " + usernames);
+//                    }
+//                    continue;
+//                }
 
                 ServerMain.broadcast(username + ": " + message, this);
             }
@@ -283,7 +292,6 @@ public class ClientHandler implements Runnable {
         try {
             if (registered && username != null) {
                 System.out.println("[SERVER] Cleaning up user '" + username + "' - disconnecting...");
-                ServerMain.markOffline(username);
                 ServerMain.unregisterUsername(username);
                 ServerMain.broadcast("SERVER: " + username + " has left the chat.", this);
             }

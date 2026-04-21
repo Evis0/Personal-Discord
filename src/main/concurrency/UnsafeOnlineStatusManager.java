@@ -1,41 +1,25 @@
 package main.concurrency;
 
-import java.util.HashSet;
-import java.util.Set;
+import main.ServerMain;
 
 public class UnsafeOnlineStatusManager implements OnlineStatusManager {
 
-    private final Set<String> onlineUsers = new HashSet<>();
-
     @Override
-    public void markOnline(String username) {
-        onlineUsers.add(username);
-    }
+    public String getOnlineStatusMessage() {
+        int count = ServerMain.getOnlineCount();
 
-    @Override
-    public void markOffline(String username) {
         try {
-            Thread.sleep(10);
+            Thread.sleep(75);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
 
-        onlineUsers.remove(username);
-    }
-
-    @Override
-    public int getOnlineCount() {
-        return onlineUsers.size();
-    }
-
-    @Override
-    public String getOnlineStatusMessage() {
-        int count = onlineUsers.size();
+        String usernames = ServerMain.getOnlineUsernames();
 
         if (count == 1) {
-            return "SERVER: There is currently 1 client online.";
+            return "SERVER: There is currently 1 client online: " + usernames;
         } else {
-            return "SERVER: There are currently " + count + " clients online.";
+            return "SERVER: There are currently " + count + " clients online: " + usernames;
         }
     }
 }

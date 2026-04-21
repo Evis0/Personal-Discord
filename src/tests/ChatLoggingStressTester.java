@@ -1,8 +1,6 @@
 package tests;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
@@ -12,17 +10,20 @@ public class ChatLoggingStressTester {
 
     public static void main(String[] args) throws Exception {
         String host = "localhost";
-        int port = 8080;
-        int threadCount = 20;
-        int messagesPerThread = 5;
+        int port = 8082;
+
+        int threadCount = 50;
+        int messagesPerThread = 20;
+
         String runId = "LOGTEST-" + System.currentTimeMillis();
 
         CountDownLatch ready = new CountDownLatch(threadCount);
         CountDownLatch start = new CountDownLatch(1);
-        CountDownLatch done = new CountDownLatch(threadCount);
+        CountDownLatch sent = new CountDownLatch(threadCount);
 
         for (int i = 0; i < threadCount; i++) {
             final int id = i;
+
             new Thread(() -> {
                 try (Socket socket = new Socket(host, port);
                      PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
@@ -45,57 +46,65 @@ public class ChatLoggingStressTester {
                         out.println(runId + "-T" + id + "-M" + j);
                     }
 
-                    Thread.sleep(300);
+                    sent.countDown();
+
+                    Thread.sleep(5000);
 
                 } catch (Exception e) {
                     System.out.println("Tester thread error: " + e.getMessage());
-                } finally {
-                    done.countDown();
+                    sent.countDown();
                 }
             }).start();
         }
 
         ready.await();
         start.countDown();
-        done.await();
+        sent.await();
 
-        Thread.sleep(1500);
+        Thread.sleep(5000);
 
         int expectedMessages = threadCount * messagesPerThread;
-        int actualMessages = countLogLines(runId);
+        int actualLoggedCount = requestLogStats(host, port, runId);
 
         System.out.println("Expected logged messages: " + expectedMessages);
-        System.out.println("Actual logged messages: " + actualMessages);
-        System.out.println("Logger stats: " + main.ServerMain.getChatLoggerStats());
-
-        if (actualMessages == expectedMessages) {
-            System.out.println("Chat logging appears thread-safe for this run.");
-        } else {
-            System.out.println("Chat logging may have race/loss issues. Missing log entries detected.");
-        }
+        System.out.println("Actual logged messages: " + actualLoggedCount);
     }
 
-    private static int countLogLines(String runId) {
-        int count = 0;
-        File logFile = new File("chatlog.txt");
+    private static int requestLogStats(String host, int port, String runId) {
+        try (Socket socket = new Socket(host, port);
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 
-        if (!logFile.exists()) {
-            System.out.println("chatlog.txt not found at: " + logFile.getAbsolutePath());
-            return 0;
-        }
+            in.readLine(); // username prompt
+            out.println("statsUser_" + runId);
 
-        try (BufferedReader reader = new BufferedReader(new FileReader(logFile))) {
             String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.contains(": " + runId + "-T")) {
-                    count++;
+            while ((line = in.readLine()) != null) {
+                if (line.startsWith("SERVER: Commands:")) {
+                    break;
                 }
             }
+
+            out.println("/logstats");
+
+            while ((line = in.readLine()) != null) {
+                if (line.startsWith("LOG_STATS|")) {
+                    return extractLoggedCount(line);
+                }
+            }
+
         } catch (Exception e) {
-            System.out.println("Error reading chat log: " + e.getMessage());
+            System.out.println("Error requesting log stats: " + e.getMessage());
         }
 
-        return count;
+        return -1;
+    }
 
+    private static int extractLoggedCount(String statsLine) {
+        try {
+            return Integer.parseInt(statsLine.replace("LOG_STATS|loggedCount =", "").trim());
+        } catch (Exception e) {
+            return -1;
+        }
     }
 }

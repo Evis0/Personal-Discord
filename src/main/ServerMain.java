@@ -35,26 +35,16 @@ public class ServerMain {
     private static final Lock clientsMutex = new ReentrantLock();
     private static final Lock usernamesMutex = new ReentrantLock();
 
-    // private static RoomManager roomManager = new SafeRoomManager();
-    private static RoomManager roomManager = new UnsafeRoomManager();
+    private static RoomManager roomManager = new SafeRoomManager();
+    // private static RoomManager roomManager = new UnsafeRoomManager();
 
-    // private static ChatLogger chatLogger = new SafeChatLogger();
-    private static ChatLogger chatLogger = new UnsafeChatLogger();
+    private static ChatLogger chatLogger = new SafeChatLogger();
+    // private static ChatLogger chatLogger = new UnsafeChatLogger();
 
-    private static OnlineStatusManager onlineStatusManager = new SafeOnlineStatusManager();
+    static OnlineStatusManager onlineStatusManager = new SafeOnlineStatusManager();
     // private static OnlineStatusManager onlineStatusManager = new UnsafeOnlineStatusManager();
 
-    public static void markOnline(String username) {
-        onlineStatusManager.markOnline(username);
-    }
 
-    public static void markOffline(String username) {
-        onlineStatusManager.markOffline(username);
-    }
-
-//    public static int getOnlineCount() {
-//        return onlineStatusManager.getOnlineCount();
-//    }
 
     public static String getOnlineStatusMessage() {
         return onlineStatusManager.getOnlineStatusMessage();
@@ -99,8 +89,10 @@ public class ServerMain {
     }
 
     public static void broadcast(String message, ClientHandler sender) {
-        chatLogger.logMessage(message);
-        System.out.println("[SERVER] " + chatLogger.getLogStats());
+        if (!message.startsWith("SERVER:")) {
+            chatLogger.logMessage(message);
+            System.out.println("[SERVER] " + chatLogger.getLogStats());
+        }
 
 
         // write to log
